@@ -77,13 +77,11 @@ const TOOL_FINISH_MS = 420
 const ASSISTANT_SPRITE_BASE = '/assets/characters/assistant'
 const ASSISTANT_REVIEW_BASE = '/assets/review/assistant'
 const ASSISTANT_WALK_VIDEO_BASE = '/assets/review/assistant/videos'
-const ASSISTANT_WALK_FRAME_BASE = '/asset-sources/video-tests/assistant-walk-8dir-videos/frames-12fps'
 const ROOM_SCENE_BASE = '/assets/rooms/agent-room'
 const ROOM_SCENE_AGENT_SCALE = 1.4
 const CYCLE_REVIEW_SOURCE_FRAMES = 75
 const CYCLE_REVIEW_SOURCE_DURATION_SECONDS = 3.162667
 const CYCLE_REVIEW_SOURCE_FPS = CYCLE_REVIEW_SOURCE_FRAMES / CYCLE_REVIEW_SOURCE_DURATION_SECONDS
-const CYCLE_REVIEW_POSTER_FRAMES = 37
 const CYCLE_REVIEW_VIDEO_ELEMENT_VERSION = 2
 const APPROVED_WALK_RUNTIME_FRAMES = 23
 
@@ -1997,18 +1995,6 @@ function videoUrl(direction: SpriteDirection) {
   return `${ASSISTANT_WALK_VIDEO_BASE}/assistant-walk-${direction}-happyhorse-720p-faststart.mp4`
 }
 
-function padFrameNumber(frame: number) {
-  return String(frame).padStart(3, '0')
-}
-
-function frameImageUrl(direction: SpriteDirection, frame: number) {
-  const posterFrame = Math.min(
-    CYCLE_REVIEW_POSTER_FRAMES,
-    Math.max(1, Math.round((frame - 1) * (CYCLE_REVIEW_POSTER_FRAMES - 1) / (CYCLE_REVIEW_SOURCE_FRAMES - 1)) + 1),
-  )
-  return `${ASSISTANT_WALK_FRAME_BASE}/${direction}/frame-${padFrameNumber(posterFrame)}.png`
-}
-
 function frameToSeconds(frame: number) {
   return Math.max(0, (frame - 1) / CYCLE_REVIEW_SOURCE_FPS)
 }
@@ -2199,7 +2185,6 @@ function CycleDirectionCard({
           key={`${direction}-cycle-video-${CYCLE_REVIEW_VIDEO_ELEMENT_VERSION}`}
           ref={videoRef}
           src={videoUrl(direction)}
-          poster={frameImageUrl(direction, selection.start)}
           muted
           playsInline
           autoPlay={active && playing}
