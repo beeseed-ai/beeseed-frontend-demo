@@ -1,0 +1,119 @@
+{
+  "kind": "beeseed-room-prop-sprite",
+  "image": "sprites/whiteboard-idle-packed.png",
+  "action": "idle",
+  "frameWidth": 218,
+  "frameHeight": 164,
+  "framesPerDirection": 8,
+  "fps": 4,
+  "anchor": {
+    "x": 109,
+    "y": 160
+  },
+  "frames": [
+    {
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 1,
+      "rect": {
+        "x": 218,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 2,
+      "rect": {
+        "x": 436,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 3,
+      "rect": {
+        "x": 654,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 4,
+      "rect": {
+        "x": 872,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 5,
+      "rect": {
+        "x": 1090,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 6,
+      "rect": {
+        "x": 1308,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    },
+    {
+      "frame": 7,
+      "rect": {
+        "x": 1526,
+        "y": 0,
+        "w": 218,
+        "h": 164
+      },
+      "anchor": {
+        "x": 109,
+        "y": 160
+      }
+    }
+  ]
+}

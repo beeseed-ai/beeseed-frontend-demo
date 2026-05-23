@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>BeeSeed</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    (function () {
+      var tokenKeys = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
+
+      function consume(params) {
+        for (var i = 0; i < tokenKeys.length; i += 1) {
+          var value = params.get(tokenKeys[i])
+          if (value) return value
+        }
+        return null
+      }
+
+      function remove(params) {
+        for (var i = 0; i < tokenKeys.length; i += 1) params.delete(tokenKeys[i])
+      }
+
+      try {
+        var url = new URL(window.location.href)
+        var searchToken = consume(url.searchParams)
+        var hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+        var hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+        var hashToken = consume(hashParams)
+        var token = searchToken || hashToken
+        if (!token) return
+
+        window.localStorage.setItem('beeseed_token', token)
+        remove(url.searchParams)
+        if (hashToken) {
+          remove(hashParams)
+          var nextHash = hashParams.toString()
+          url.hash = nextHash ? '#' + nextHash : ''
+        }
+        window.history.replaceState(null, document.title, url.toString())
+      } catch (error) {
+        console.error('[BeeSeed] failed to consume launch token', error)
+      }
+    })()
+  </script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

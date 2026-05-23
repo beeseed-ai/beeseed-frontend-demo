@@ -1,0 +1,66 @@
+@import "@beeseed/beeseed-sdk/tailwind.css";
+@source "../node_modules/@beeseed/beeseed-sdk/dist";
+@source "../../../../beeseed-sdk/src";
+
+:root {
+  --beeseed-task-dialog-width: 42rem;
+}
+
+.fixed.inset-0.z-50.flex.items-center.justify-center
+  > .relative.z-10
+  > .p-0.sm\:max-w-md:has(> .space-y-4 > .grid.grid-cols-2.gap-1.rounded-md.bg-muted.p-1),
+.fixed.inset-0.z-50.flex.items-center.justify-center
+  > .relative.z-10
+  > .p-0.sm\:max-w-md:has(> .space-y-4 > .grid.grid-cols-2.gap-3) {
+  width: min(var(--beeseed-task-dialog-width), calc(100vw - 2rem));
+  max-width: min(var(--beeseed-task-dialog-width), calc(100vw - 2rem));
+}
+
+/* Keep SDK dialog footers inside zero-padded modal content. */
+[class~="p-0"] > [class~="-mx-4"][class~="-mb-4"] {
+  margin-right: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+}
+
+.beeseed-storage-file-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.beeseed-storage-file-row:hover,
+.beeseed-storage-file-row:focus {
+  background-color: #f8fafc;
+  outline: none;
+}
+
+.beeseed-storage-file-row:focus {
+  box-shadow: inset 0 0 0 1px #9297a0;
+}
+
+/* Reserve space for the SDK dialog close button in the cloud storage toolbar. */
+.fixed.inset-0.z-50.flex.items-center.justify-center
+  > .relative.z-10
+  > [class~="h-[min(720px,calc(100vh-4rem))]"][class~="p-0"] {
+  position: relative;
+}
+
+.fixed.inset-0.z-50.flex.items-center.justify-center
+  > .relative.z-10
+  > [class~="h-[min(720px,calc(100vh-4rem))]"][class~="p-0"]
+  > .flex-1.flex.flex-col.overflow-hidden.h-full
+  > .flex.items-center.gap-2.px-4.py-3.border-b.border-border {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  padding-right: 3.75rem;
+}
+
+.fixed.inset-0.z-50.flex.items-center.justify-center
+  > .relative.z-10
+  > [class~="h-[min(720px,calc(100vh-4rem))]"][class~="p-0"]
+  > .flex-1.flex.flex-col.overflow-hidden.h-full
+  > .flex.items-center.gap-2.px-4.py-3.border-b.border-border
+  > .relative.w-48 {
+  flex: 0 1 12rem;
+  min-width: 10rem;
+}

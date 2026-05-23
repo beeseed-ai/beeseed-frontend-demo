@@ -1,0 +1,58 @@
+{
+  "kind": "beeseed-agent-room-scene",
+  "version": 3,
+  "size": { "width": 1536, "height": 1024 },
+  "assetBase": "/assets/rooms/agent-room",
+  "assets": {
+    "background": { "type": "image", "src": "layers/room-complete-v2.png" }
+  },
+  "layers": [
+    { "asset": "background", "x": 0, "y": 0, "z": 10 }
+  ],
+  "pads": [],
+  "labels": [],
+  "agentRoute": [
+    { "x": 760, "y": 640 },
+    { "x": 445, "y": 555 },
+    { "x": 695, "y": 455 },
+    { "x": 995, "y": 455 },
+    { "x": 1125, "y": 680 },
+    { "x": 570, "y": 725 },
+    { "x": 760, "y": 640 }
+  ],
+  "navigation": {
+    "nodes": [
+      { "id": "center", "x": 770, "y": 640 },
+      { "id": "left_lane", "x": 610, "y": 650 },
+      { "id": "computer_stand", "x": 470, "y": 590 },
+      { "id": "whiteboard_stand", "x": 710, "y": 545 },
+      { "id": "right_lane", "x": 975, "y": 625 },
+      { "id": "storage_stand", "x": 1010, "y": 540 },
+      { "id": "console_stand", "x": 1125, "y": 745 },
+      { "id": "front_lane", "x": 830, "y": 760 },
+      { "id": "knowledge_stand", "x": 700, "y": 780 }
+    ],
+    "edges": [
+      ["center", "left_lane"],
+      ["left_lane", "computer_stand"],
+      ["left_lane", "whiteboard_stand"],
+      ["center", "whiteboard_stand"],
+      ["center", "right_lane"],
+      ["right_lane", "storage_stand"],
+      ["right_lane", "console_stand"],
+      ["center", "front_lane"],
+      ["front_lane", "knowledge_stand"],
+      ["front_lane", "console_stand"],
+      ["front_lane", "left_lane"]
+    ],
+    "route": [
+      "center",
+      "computer_stand",
+      "whiteboard_stand",
+      "storage_stand",
+      "console_stand",
+      "knowledge_stand",
+      "center"
+    ]
+  }
+}

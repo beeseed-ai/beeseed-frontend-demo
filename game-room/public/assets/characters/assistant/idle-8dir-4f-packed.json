@@ -1,0 +1,507 @@
+{
+  "image": "idle-8dir-4f-packed.png",
+  "source": "idle-8dir-4f-unpacked-alpha.png",
+  "character": "assistant",
+  "action": "idle",
+  "directions": [
+    "N",
+    "NE",
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW"
+  ],
+  "framesPerDirection": 4,
+  "frameWidth": 192,
+  "frameHeight": 128,
+  "anchor": {
+    "x": 96,
+    "y": 118
+  },
+  "layout": "rows=directions, columns=frames",
+  "frames": [
+    {
+      "action": "idle",
+      "direction": "N",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "N",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 0,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "N",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 0,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "N",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 0,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NE",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 128,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NE",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 128,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NE",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 128,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NE",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 128,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "E",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 256,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "E",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 256,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "E",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 256,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "E",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 256,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SE",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 384,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SE",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 384,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SE",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 384,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SE",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 384,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "S",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 512,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "S",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 512,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "S",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 512,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "S",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 512,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SW",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 640,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SW",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 640,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SW",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 640,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "SW",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 640,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "W",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 768,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "W",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 768,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "W",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 768,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "W",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 768,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NW",
+      "frame": 0,
+      "rect": {
+        "x": 0,
+        "y": 896,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NW",
+      "frame": 1,
+      "rect": {
+        "x": 192,
+        "y": 896,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NW",
+      "frame": 2,
+      "rect": {
+        "x": 384,
+        "y": 896,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    },
+    {
+      "action": "idle",
+      "direction": "NW",
+      "frame": 3,
+      "rect": {
+        "x": 576,
+        "y": 896,
+        "w": 192,
+        "h": 128
+      },
+      "anchor": {
+        "x": 96,
+        "y": 118
+      }
+    }
+  ],
+  "notes": "Idle frames are generated from one clean base pose per direction; frame 2/3 use a tiny vertical offset as a temporary breathing loop until dedicated idle animation frames are approved."
+}
