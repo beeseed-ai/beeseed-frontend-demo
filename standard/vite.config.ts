@@ -11,7 +11,7 @@ const standardTemplateVersion = pkg.version || '0.0.0'
 const standardTemplateBuildTime = new Date().toISOString()
 const sdkAlias = {
   '@beeseed/beeseed-sdk/tailwind.css': path.resolve(sdkRoot, 'tailwind.css'),
-  '@beeseed/beeseed-sdk': path.resolve(sdkRoot, 'src/index.ts'),
+  '@beeseed/beeseed-sdk': path.resolve(__dirname, 'src/sdk-runtime.ts'),
   '@standard/agent-skill-catalog': path.resolve(__dirname, 'src/agent-skill-catalog.ts'),
   '@standard/cloud-storage-panel': path.resolve(__dirname, 'src/components/CloudStoragePanel.tsx'),
 }
@@ -370,8 +370,13 @@ function localDayTime(value?: string) {
             "import type { CalendarEvent, ChannelMemberInfo, Task, TaskSchedule, TaskSchedulerMetrics } from '../../core/types.js'",
           ],
           [
-            "  const selectedEvents = calendarEvents.filter((event) => isSameLocalDay(new Date(event.start_at), selectedDate))",
-            "  const visibleCalendarEvents = filterCalendarEventsForSelectedDate(calendarEvents, scheduledTasks, selectedDate)\n  const selectedEvents = visibleCalendarEvents.filter((event) => isSameLocalDay(new Date(event.start_at), selectedDate))",
+            `  const selectedEvents = calendarEvents
+    .filter((event) => isSameLocalDay(new Date(event.start_at), selectedDate))
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())`,
+            `  const visibleCalendarEvents = filterCalendarEventsForSelectedDate(calendarEvents, scheduledTasks, selectedDate)
+  const selectedEvents = visibleCalendarEvents
+    .filter((event) => isSameLocalDay(new Date(event.start_at), selectedDate))
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())`,
           ],
           [
             "            events={calendarEvents}",
@@ -402,14 +407,12 @@ function formatDayTitle(value: Date) {`,
             "import type { CalendarEvent, ChannelMemberInfo, ModelTierName, Task, TaskSchedule, StorageObject } from '../../core/types.js'",
           ],
           [
-            `  const upcomingEvents = useMemo(() => [...calendarEvents]
-    .filter((event) => new Date(event.start_at).getTime() >= now - 60_000)
-    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-    .slice(0, 6), [calendarEvents, now])`,
-            `  const upcomingEvents = useMemo(() => filterCalendarEventsForCurrentDay(calendarEvents, scheduledTasks, now)
-    .filter((event) => new Date(event.start_at).getTime() >= now - 60_000)
-    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-    .slice(0, 6), [calendarEvents, scheduledTasks, now])`,
+            `  const upcomingEventItems = useMemo(() => [...calendarEvents]
+    .filter((event) => !event.is_recurring && new Date(event.start_at).getTime() >= now - 60_000)
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()), [calendarEvents, now])`,
+            `  const upcomingEventItems = useMemo(() => filterCalendarEventsForCurrentDay(calendarEvents, scheduledTasks, now)
+    .filter((event) => !event.is_recurring && new Date(event.start_at).getTime() >= now - 60_000)
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()), [calendarEvents, scheduledTasks, now])`,
           ],
           [
             `function CompactCalendarRow({ event, onClick }: { event: CalendarEvent; onClick: () => void }) {`,
@@ -477,7 +480,7 @@ function hideKnowledgeNavOverlay(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [syncSkillIcons(), agentSkillsDialogOverlay(), storageUploadIntegrityOverlay(), taskCalendarDisplayOverlay(), skillShortcutMenuOverlay(), agentManageTabOverride(), hideKnowledgeNavOverlay(), react(), tailwindcss()],
+  plugins: [syncSkillIcons(), agentSkillsDialogOverlay(), storageUploadIntegrityOverlay(), skillShortcutMenuOverlay(), agentManageTabOverride(), hideKnowledgeNavOverlay(), react(), tailwindcss()],
   define: {
     __STANDARD_TEMPLATE_VERSION__: JSON.stringify(standardTemplateVersion),
     __STANDARD_TEMPLATE_BUILD_TIME__: JSON.stringify(standardTemplateBuildTime),
@@ -489,11 +492,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: '.',
+    modulePreload: false,
     rollupOptions: {
       output: {
         entryFileNames: 'app-[hash].js',
+        chunkFileNames: '[name]-[hash].js',
         assetFileNames: (info) => {
-          if (info.names?.[0]?.endsWith('.css') || info.name?.endsWith('.css')) return 'app.css'
+          if (info.names?.[0]?.endsWith('.css') || info.name?.endsWith('.css')) return 'app-[hash][extname]'
           return '[name][extname]'
         },
       },
