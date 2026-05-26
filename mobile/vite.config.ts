@@ -371,11 +371,19 @@ function localDayTime(value?: string) {
             "import type { CalendarEvent, ChannelMemberInfo, Task, TaskSchedule, TaskSchedulerMetrics } from '../../core/types.js'",
           ],
           [
-            "  const selectedEvents = calendarEvents.filter((event) => isSameLocalDay(new Date(event.start_at), selectedDate))",
-            "  const visibleCalendarEvents = filterCalendarEventsForSelectedDate(calendarEvents, scheduledTasks, selectedDate)\n  const selectedEvents = visibleCalendarEvents.filter((event) => isSameLocalDay(new Date(event.start_at), selectedDate))",
+            "  const oneTimeCalendarEvents = calendarEvents.filter((event) => !event.is_recurring)",
+            "  const visibleCalendarEvents = filterCalendarEventsForSelectedDate(calendarEvents, scheduledTasks, selectedDate)",
           ],
           [
-            "            events={calendarEvents}",
+            "  const selectedEvents = oneTimeCalendarEvents",
+            "  const selectedEvents = visibleCalendarEvents",
+          ],
+          [
+            "oneTimeCalendarEvents.length",
+            "visibleCalendarEvents.length",
+          ],
+          [
+            "            events={oneTimeCalendarEvents}",
             "            events={visibleCalendarEvents}",
           ],
           [
@@ -403,14 +411,12 @@ function formatDayTitle(value: Date) {`,
             "import type { CalendarEvent, ChannelMemberInfo, ModelTierName, Task, TaskSchedule, StorageObject } from '../../core/types.js'",
           ],
           [
-            `  const upcomingEvents = useMemo(() => [...calendarEvents]
+            `  const upcomingEventItems = useMemo(() => [...calendarEvents]
+    .filter((event) => !event.is_recurring && new Date(event.start_at).getTime() >= now - 60_000)
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()), [calendarEvents, now])`,
+            `  const upcomingEventItems = useMemo(() => filterCalendarEventsForCurrentDay(calendarEvents, scheduledTasks, now)
     .filter((event) => new Date(event.start_at).getTime() >= now - 60_000)
-    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-    .slice(0, 6), [calendarEvents, now])`,
-            `  const upcomingEvents = useMemo(() => filterCalendarEventsForCurrentDay(calendarEvents, scheduledTasks, now)
-    .filter((event) => new Date(event.start_at).getTime() >= now - 60_000)
-    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-    .slice(0, 6), [calendarEvents, scheduledTasks, now])`,
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()), [calendarEvents, scheduledTasks, now])`,
           ],
           [
             `function CompactCalendarRow({ event, onClick }: { event: CalendarEvent; onClick: () => void }) {`,
