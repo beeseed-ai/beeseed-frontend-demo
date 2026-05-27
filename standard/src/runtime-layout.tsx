@@ -40,6 +40,32 @@ import { RuntimeAgentRunTranscript, RuntimeThinkingBlock } from './runtime-agent
 
 const CHAT_MAX_WIDTH = 820
 const CHAT_UPLOAD_PREFIX = '__chat_uploads/'
+const DEFAULT_WELCOME_MESSAGE = '你身边的智能助手，可以为你答疑解惑、尽情创作，快来点击以下任一功能体验吧～'
+const LEGACY_DEFAULT_WELCOME_MESSAGES = [
+  '你好！有什么可以帮助你的？',
+  '你好！有什么可以帮你的？',
+  '你好！有什么可以帮到你的？',
+]
+const DEFAULT_WELCOME_QUICK_QUESTIONS = [
+  '请用诗句描述雨后的景象。',
+  '帮我推荐几道新疆的特色美食',
+  '请解释为什么苹果从树上掉下来？',
+]
+
+function formatWelcomeTitle(title: string | undefined, fallbackTitle: string | undefined): string {
+  const cleanTitle = title?.trim()
+  if (cleanTitle) return cleanTitle
+  const assistantName = fallbackTitle?.trim() || 'BeeSeed'
+  return `Hi~ 我是${assistantName}`
+}
+
+function formatWelcomeMessage(message: string | undefined): string {
+  const cleanMessage = message?.trim()
+  if (!cleanMessage || LEGACY_DEFAULT_WELCOME_MESSAGES.includes(cleanMessage)) {
+    return DEFAULT_WELCOME_MESSAGE
+  }
+  return cleanMessage
+}
 
 function StandardTemplateVersion() {
   const version = __STANDARD_TEMPLATE_VERSION__
@@ -841,7 +867,11 @@ function MessageList({
   currentUserId,
   onSubmitAnswer,
   onStopAgent,
+  welcomeTitle,
+  welcomeFallbackTitle,
   welcomeMessage,
+  quickQuestions,
+  onQuickQuestion,
 }: {
   channelId: string
   messages: ChatMessage[]
@@ -853,7 +883,11 @@ function MessageList({
   currentUserId?: string
   onSubmitAnswer?: (askId: string, answers: Record<string, unknown>) => void
   onStopAgent?: (agentId: string, reason?: string, runId?: string) => void
+  welcomeTitle?: string
+  welcomeFallbackTitle?: string
   welcomeMessage?: string
+  quickQuestions?: string[]
+  onQuickQuestion?: (question: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const shouldAutoScroll = useRef(true)
@@ -880,6 +914,9 @@ function MessageList({
       })
   ), [streams])
   const visibleTypings = useMemo(() => typings ?? [], [typings])
+  const displayQuickQuestions = onQuickQuestion
+    ? (quickQuestions && quickQuestions.length > 0 ? quickQuestions : DEFAULT_WELCOME_QUICK_QUESTIONS)
+    : []
 
   const scrollToBottom = useCallback(() => {
     const el = containerRef.current
@@ -918,8 +955,33 @@ function MessageList({
     <div ref={containerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#fafafa]">
       <div className="mx-auto w-full" style={{ maxWidth: CHAT_MAX_WIDTH }}>
         {timelineGroups.length === 0 && visibleStreams.length === 0 && visibleTypings.length === 0 && (
-          <div className="flex min-h-[calc(100dvh-190px)] items-center justify-center px-6 text-center">
-            <p className="max-w-md rounded-xl border border-border bg-white px-6 py-5 text-sm leading-6 text-muted-foreground shadow-sm">{welcomeMessage}</p>
+          <div className="flex min-h-[calc(100dvh-190px)] items-start justify-start px-6 py-12 text-left sm:px-10 sm:py-16">
+            <div className="w-full max-w-[36rem]">
+              <h2 className="text-[30px] font-medium leading-tight tracking-normal text-[#050505] sm:text-[36px]">
+                {formatWelcomeTitle(welcomeTitle, welcomeFallbackTitle)}
+              </h2>
+              <p className="mt-8 max-w-[35rem] text-[20px] leading-9 tracking-normal text-[#181d26]">
+                {formatWelcomeMessage(welcomeMessage)}
+              </p>
+              <div className="mt-7 border-t border-dashed border-[#d7d7d7]" />
+              {displayQuickQuestions.length > 0 && (
+                <div className="mt-7" aria-label="预设快速提问">
+                  <p className="text-[18px] leading-7 text-[#a4a4a4]">你可以这样问</p>
+                  <div className="mt-4 flex flex-col items-start gap-3">
+                    {displayQuickQuestions.map((question) => (
+                      <button
+                        key={question}
+                        type="button"
+                        onClick={() => onQuickQuestion?.(question)}
+                        className="max-w-full rounded-[10px] bg-white px-3.5 py-2 text-left text-[18px] font-medium leading-6 tracking-normal text-[#007a4d] shadow-sm ring-1 ring-black/[0.03] transition-colors hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#39bf45]/35"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1430,10 +1492,18 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
 }) {
   const { user } = useAuth()
   const { branding } = useAppConfig()
+  const { channels } = useChannels()
   const { messages, streams, agentLoops, members, typings, send, sendWithQuote, submitAnswer, stopAgent, loading } = useChat(channelId)
   const { composerInsertText, consumeComposerInsert } = useDetailPanel()
   const [quotedMessage, setQuotedMessage] = useState<ChatMessage | null>(null)
   const skillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
+  const channelSettings = useMemo(
+    () => parseChannelRuntimeSettings(channels.find((channel) => channel.id === channelId)?.settings),
+    [channels, channelId],
+  )
+  const welcomeTitle = channelSettings.welcome_title
+  const welcomeMessage = channelSettings.welcome_message || branding.welcomeMessage
+  const quickQuestions = channelSettings.quick_questions ?? []
 
   const handleSend = useCallback((content: string, metadata?: Record<string, unknown>) => {
     if (quotedMessage) {
@@ -1473,7 +1543,11 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
               currentUserId={user?.id}
               onSubmitAnswer={submitAnswer}
               onStopAgent={stopAgent}
-              welcomeMessage={branding.welcomeMessage}
+              welcomeTitle={welcomeTitle}
+              welcomeFallbackTitle={branding.title}
+              welcomeMessage={welcomeMessage}
+              quickQuestions={quickQuestions}
+              onQuickQuestion={(question) => handleSend(question, { source: 'quick_question' })}
             />
           )}
 
@@ -1498,6 +1572,22 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   )
 }
 
+function parseChannelRuntimeSettings(settings: string | undefined): { welcome_title?: string; welcome_message?: string; quick_questions?: string[] } {
+  if (!settings) return {}
+  try {
+    const parsed = JSON.parse(settings) as { welcome_title?: unknown; welcome_message?: unknown; quick_questions?: unknown }
+    return {
+      welcome_title: typeof parsed.welcome_title === 'string' ? parsed.welcome_title.trim() : undefined,
+      welcome_message: typeof parsed.welcome_message === 'string' ? parsed.welcome_message.trim() : undefined,
+      quick_questions: Array.isArray(parsed.quick_questions)
+        ? parsed.quick_questions.map((item) => typeof item === 'string' ? item.trim() : '').filter(Boolean)
+        : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
 function RuntimeChannelHeader({
   channel,
   leading,
@@ -1508,7 +1598,7 @@ function RuntimeChannelHeader({
   trailing?: ReactNode
 }) {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const resetTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const resetTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     setCopyStatus('idle')

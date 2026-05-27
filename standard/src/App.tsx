@@ -644,7 +644,7 @@ function shouldRefreshAfterTaskTool(tool: AgentLoopToolCall): boolean {
 function TaskToolResultRefreshSync() {
   const { channelsStore, messagesStore, tasksStore } = useBeeSeedContext()
   const processedRef = useRef(new Set<string>())
-  const timersRef = useRef(new Map<string, ReturnType<typeof window.setTimeout>>())
+  const timersRef = useRef(new Map<string, number>())
   const mountedAtRef = useRef(Date.now() - 1000)
 
   useEffect(() => {
