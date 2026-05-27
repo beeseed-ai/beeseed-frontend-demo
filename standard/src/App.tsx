@@ -3,8 +3,6 @@ import { useStore } from 'zustand'
 import {
   BeeSeedProvider,
   AuthGuard,
-  LoginForm,
-  RegisterForm,
   Button,
   CreateChannelDialog,
   applyDocumentBranding,
@@ -849,16 +847,54 @@ class RuntimeErrorBoundary extends Component<{ children: ReactNode }, RuntimeErr
   }
 }
 
+function appLaunchSubdomain(appConfig: AppRuntimeConfig): string {
+  const configured = appConfig.platform?.subdomain?.trim()
+  if (configured) return configured
+  const host = window.location.hostname
+  const appDomain = appConfig.platform?.app_domain?.replace(/^\./, '').trim()
+  if (appDomain && host.endsWith(`.${appDomain}`)) {
+    return host.slice(0, -(appDomain.length + 1))
+  }
+  return host.split('.')[0] || ''
+}
+
+function platformExternalURL(appConfig: AppRuntimeConfig): string | null {
+  const configured = appConfig.platform?.external_url?.trim()
+  if (configured) return configured.replace(/\/+$/, '')
+  const { protocol, hostname } = window.location
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return null
+  const parts = hostname.split('.').filter(Boolean)
+  if (parts.length < 2) return null
+  parts[0] = 'hive'
+  return `${protocol}//${parts.join('.')}`
+}
+
+function buildHiveAppLaunchURL(appConfig: AppRuntimeConfig): string | null {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain) return null
+  const url = new URL('/app-launch', platformURL)
+  url.searchParams.set('subdomain', subdomain)
+  url.searchParams.set('return_to', window.location.href)
+  return url.toString()
+}
+
 function AuthScreen() {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const { appConfig } = useAppConfig()
+  const launchURL = useMemo(() => buildHiveAppLaunchURL(appConfig), [appConfig])
+
+  useEffect(() => {
+    if (launchURL) window.location.replace(launchURL)
+  }, [launchURL])
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-[#fafafa] px-4 py-[max(1rem,env(safe-area-inset-top))]">
-      {mode === 'login' ? (
-        <LoginForm onSwitchToRegister={() => setMode('register')} />
-      ) : (
-        <RegisterForm onSwitchToLogin={() => setMode('login')} />
-      )}
+      <div className="w-full max-w-sm rounded-lg border border-[#dddddd] bg-white p-6 text-center shadow-sm">
+        <p className="text-base font-medium text-[#181d26]">正在进入应用</p>
+        <p className="mt-2 text-sm leading-6 text-[#41454d]">
+          {launchURL ? '请稍候，正在前往 Hive 完成身份校验。' : '当前应用缺少 Hive 入口配置，暂时无法进入。'}
+        </p>
+      </div>
     </div>
   )
 }
