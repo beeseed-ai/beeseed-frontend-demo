@@ -51,6 +51,8 @@ const TOKEN_STORAGE_KEY = 'beeseed_token'
 const LAUNCH_TOKEN_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const TOKEN_QUERY_RE = /([?#&](?:beeseed_launch_token|beeseed_token|token|auth_token|access_token)=)[^&#\s]*/gi
 const INVITE_CODE_KEYS = ['invite_code', 'invite']
+const SIGNED_OUT_KEYS = ['signed_out']
+const APP_SIGNED_OUT_STORAGE_KEY = 'beeseed:app-signed-out:v1'
 const LAST_CHANNEL_STORAGE_PREFIX = 'beeseed:last-channel:v1'
 const STORAGE_MISSING_TOOLS = new Set(['storage_read', 'storage_info'])
 const STORAGE_MISSING_ERROR_RE = /\bno rows in result set\b/i
@@ -163,6 +165,39 @@ function removeTokenParams(params: URLSearchParams) {
   }
 }
 
+function hasAnyParam(params: URLSearchParams, keys: string[]): boolean {
+  return keys.some((key) => params.has(key))
+}
+
+function removeParams(params: URLSearchParams, keys: string[]) {
+  for (const key of keys) params.delete(key)
+}
+
+function setAppSignedOut(value: boolean) {
+  try {
+    if (value) window.localStorage.setItem(APP_SIGNED_OUT_STORAGE_KEY, '1')
+    else window.localStorage.removeItem(APP_SIGNED_OUT_STORAGE_KEY)
+  } catch {
+    // Ignore private-mode storage failures.
+  }
+}
+
+function isAppSignedOut(): boolean {
+  try {
+    return window.localStorage.getItem(APP_SIGNED_OUT_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function clearAppToken() {
+  try {
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY)
+  } catch {
+    // Ignore private-mode storage failures.
+  }
+}
+
 function lastChannelStorageKey(userId: string): string {
   const appScope = typeof window === 'undefined' ? 'app' : window.location.host || 'app'
   return `${LAST_CHANNEL_STORAGE_PREFIX}:${appScope}:${encodeURIComponent(userId)}`
@@ -227,19 +262,41 @@ function consumeLaunchTokenFromUrl() {
 
   try {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token)
+    setAppSignedOut(false)
   } catch {
     return
   }
 
   removeTokenParams(url.searchParams)
+  removeParams(url.searchParams, SIGNED_OUT_KEYS)
   if (hashToken) {
     removeTokenParams(hashParams)
+    removeParams(hashParams, SIGNED_OUT_KEYS)
     const nextHash = hashParams.toString()
     url.hash = nextHash ? `#${nextHash}` : ''
   }
   window.history.replaceState(null, document.title, url.toString())
 }
 
+function syncSignedOutStateFromUrl() {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+  const hashText = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.startsWith('?') ? hashText.slice(1) : hashText)
+  const signedOut = hasAnyParam(url.searchParams, SIGNED_OUT_KEYS) || hasAnyParam(hashParams, SIGNED_OUT_KEYS)
+  if (!signedOut) return
+
+  clearAppToken()
+  setAppSignedOut(true)
+  removeParams(url.searchParams, SIGNED_OUT_KEYS)
+  removeParams(hashParams, SIGNED_OUT_KEYS)
+  const nextHash = hashParams.toString()
+  url.hash = nextHash ? `#${nextHash}` : ''
+  window.history.replaceState(null, document.title, url.toString())
+}
+
+syncSignedOutStateFromUrl()
 consumeLaunchTokenFromUrl()
 
 function sanitizeStorageMessageContent(content?: string) {
@@ -1104,10 +1161,20 @@ function readInviteCodeFromLocation(): string {
 function appReturnToWithoutInviteCode(): string {
   const url = new URL(window.location.href)
   for (const key of INVITE_CODE_KEYS) url.searchParams.delete(key)
+  removeTokenParams(url.searchParams)
+  removeParams(url.searchParams, SIGNED_OUT_KEYS)
   const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
   const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
   let changedHash = false
   for (const key of INVITE_CODE_KEYS) {
+    if (hashParams.has(key)) changedHash = true
+    hashParams.delete(key)
+  }
+  for (const key of LAUNCH_TOKEN_KEYS) {
+    if (hashParams.has(key)) changedHash = true
+    hashParams.delete(key)
+  }
+  for (const key of SIGNED_OUT_KEYS) {
     if (hashParams.has(key)) changedHash = true
     hashParams.delete(key)
   }
@@ -1116,6 +1183,22 @@ function appReturnToWithoutInviteCode(): string {
     url.hash = nextHash ? '#' + nextHash : ''
   }
   return `${url.pathname}${url.search}${url.hash}`
+}
+
+function appSignedOutReturnTo(): string {
+  const url = new URL(window.location.href)
+  for (const key of INVITE_CODE_KEYS) url.searchParams.delete(key)
+  removeTokenParams(url.searchParams)
+  removeParams(url.searchParams, SIGNED_OUT_KEYS)
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  for (const key of INVITE_CODE_KEYS) hashParams.delete(key)
+  removeTokenParams(hashParams)
+  removeParams(hashParams, SIGNED_OUT_KEYS)
+  const nextHash = hashParams.toString()
+  url.hash = nextHash ? '#' + nextHash : ''
+  url.searchParams.set('signed_out', '1')
+  return url.toString()
 }
 
 function buildHiveAppLaunchURL(appConfig?: AppRuntimeConfig | null): string {
@@ -1131,13 +1214,53 @@ function buildHiveAppLaunchURL(appConfig?: AppRuntimeConfig | null): string {
   return launchURL.toString()
 }
 
+function buildHiveLogoutURL(appConfig?: AppRuntimeConfig | null): string {
+  const platformURL = platformExternalURL(appConfig)
+  if (!platformURL || typeof window === 'undefined') return ''
+  const logoutURL = new URL('/logout', platformURL)
+  logoutURL.searchParams.set('return_to', appSignedOutReturnTo())
+  return logoutURL.toString()
+}
+
+function beginHiveLogout(appConfig?: AppRuntimeConfig | null) {
+  clearAppToken()
+  setAppSignedOut(true)
+  const logoutURL = buildHiveLogoutURL(appConfig)
+  window.location.assign(logoutURL || appSignedOutReturnTo())
+}
+
 function AuthScreen() {
   const { appConfig } = useAppConfig()
-  const launchURL = useMemo(() => buildHiveAppLaunchURL(appConfig), [appConfig])
+  const [signedOut, setSignedOut] = useState(() => isAppSignedOut())
+  const launchURL = useMemo(() => signedOut ? '' : buildHiveAppLaunchURL(appConfig), [appConfig, signedOut])
 
   useEffect(() => {
     if (launchURL) window.location.replace(launchURL)
   }, [launchURL])
+
+  function handleSignInAgain() {
+    setAppSignedOut(false)
+    setSignedOut(false)
+    const nextURL = buildHiveAppLaunchURL(appConfig)
+    if (nextURL) window.location.replace(nextURL)
+  }
+
+  if (signedOut) {
+    return (
+      <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col items-center justify-center overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center">
+        <MobileAuthBrand />
+        <div className="mx-auto mt-4 w-full max-w-sm rounded-[28px] border-4 border-[#2a1854] bg-white p-5 shadow-[0_10px_0_rgba(42,24,84,0.18)]">
+          <p className="text-base font-black text-[#2a1854]">已退出登录</p>
+          <p className="mt-2 text-sm leading-6 text-[#5f3b93]">
+            当前应用会话和 Hive 登录态已清理。重新登录后可以继续进入应用。
+          </p>
+          <Button className="mt-5 w-full" onClick={handleSignInAgain}>
+            重新登录
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col items-center justify-center overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center">
@@ -2158,7 +2281,7 @@ export function App() {
 
   return (
     <RuntimeErrorBoundary>
-      <BeeSeedProvider config={{ workerUrl: '', appConfig: runtimeConfig }}>
+      <BeeSeedProvider config={{ workerUrl: '', appConfig: runtimeConfig, onSignOut: () => beginHiveLogout(runtimeConfig) }}>
         <AuthGuard fallback={<AuthScreen />}>
           <StorageToolResultNormalizer />
           <RuntimeTaskStateNormalizer />

@@ -371,7 +371,7 @@ function ProfilePage({
           <button
             type="button"
             className="mobile-game-profile-action text-[#aa2d00]"
-            onClick={signOut}
+            onClick={() => signOut({ scope: 'global' })}
           >
             <LogOut className="h-4 w-4" />
             退出登录

@@ -10,6 +10,8 @@
   <script>
     (function () {
       var tokenKeys = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
+      var signedOutKeys = ['signed_out']
+      var signedOutStorageKey = 'beeseed:app-signed-out:v1'
 
       function consume(params) {
         for (var i = 0; i < tokenKeys.length; i += 1) {
@@ -23,6 +25,17 @@
         for (var i = 0; i < tokenKeys.length; i += 1) params.delete(tokenKeys[i])
       }
 
+      function removeSignedOut(params) {
+        for (var i = 0; i < signedOutKeys.length; i += 1) params.delete(signedOutKeys[i])
+      }
+
+      function hasSignedOut(params) {
+        for (var i = 0; i < signedOutKeys.length; i += 1) {
+          if (params.has(signedOutKeys[i])) return true
+        }
+        return false
+      }
+
       try {
         var url = new URL(window.location.href)
         var searchToken = consume(url.searchParams)
@@ -30,12 +43,25 @@
         var hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
         var hashToken = consume(hashParams)
         var token = searchToken || hashToken
+        var signedOut = hasSignedOut(url.searchParams) || hasSignedOut(hashParams)
+        if (signedOut) {
+          window.localStorage.removeItem('beeseed_token')
+          window.localStorage.setItem(signedOutStorageKey, '1')
+          removeSignedOut(url.searchParams)
+          removeSignedOut(hashParams)
+          var signedOutHash = hashParams.toString()
+          url.hash = signedOutHash ? '#' + signedOutHash : ''
+          window.history.replaceState(null, document.title, url.toString())
+        }
         if (!token) return
 
         window.localStorage.setItem('beeseed_token', token)
+        window.localStorage.removeItem(signedOutStorageKey)
         remove(url.searchParams)
+        removeSignedOut(url.searchParams)
         if (hashToken) {
           remove(hashParams)
+          removeSignedOut(hashParams)
           var nextHash = hashParams.toString()
           url.hash = nextHash ? '#' + nextHash : ''
         }
