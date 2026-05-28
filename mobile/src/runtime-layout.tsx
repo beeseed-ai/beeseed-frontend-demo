@@ -19,6 +19,7 @@ import {
   type ChannelMemberInfo,
   type FeatureView,
   type AppRuntimeConfig,
+  type HiveProfileSnapshot,
 } from '@beeseed/beeseed-sdk'
 import { CloudStoragePanel } from './components/CloudStoragePanel'
 import { MobileTaskPanel } from './components/MobileTaskPanel'
@@ -326,7 +327,7 @@ function ProfilePage({
 }: {
   onAdmin: () => void
 }) {
-  const { user, signOut, init } = useAuth()
+  const { user, signOut, init, applyHiveProfile } = useAuth()
   const { appConfig } = useAppConfig()
   const [loadingProfile, setLoadingProfile] = useState(true)
   const profileURL = useMemo(() => buildHiveProfileURL(appConfig), [appConfig])
@@ -345,19 +346,35 @@ function ProfilePage({
   }, [profileURL])
 
   useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const channel = new BroadcastChannel(HIVE_PROFILE_CHANNEL)
+    channel.onmessage = (event) => {
+      const data = normalizeHiveProfileMessage(event.data)
+      if (data?.type === 'beeseed:hive-profile-updated' && data.profile) {
+        applyHiveProfile(data.profile)
+      }
+    }
+    return () => channel.close()
+  }, [applyHiveProfile])
+
+  useEffect(() => {
     if (!profileOrigin) return
 
     function handleMessage(event: MessageEvent) {
       if (event.origin !== profileOrigin) return
-      const data = typeof event.data === 'object' && event.data !== null
-        ? event.data as { type?: string }
-        : null
-      if (data?.type === 'beeseed:hive-profile-updated') void init()
+      const data = normalizeHiveProfileMessage(event.data)
+      if (data?.type !== 'beeseed:hive-profile-updated') return
+      if (data.profile) {
+        applyHiveProfile(data.profile)
+        broadcastHiveProfile(data)
+      } else {
+        void init()
+      }
     }
 
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [init, profileOrigin])
+  }, [applyHiveProfile, init, profileOrigin])
 
   return (
     <div className="mobile-game-panel flex h-full min-h-0 flex-col">
@@ -413,6 +430,13 @@ function ProfilePage({
 
 const PROFILE_TOKEN_QUERY_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const PROFILE_SIGNED_OUT_KEYS = ['signed_out', 'logout', 'logged_out']
+const HIVE_PROFILE_CHANNEL = 'beeseed:hive-profile-sync'
+
+type HiveProfileMessage = {
+  type?: string
+  profile?: HiveProfileSnapshot
+  changed_fields?: string[]
+}
 
 function buildHiveProfileURL(appConfig?: AppRuntimeConfig | null): string {
   const platformURL = profilePlatformExternalURL(appConfig)
@@ -459,6 +483,31 @@ function appProfileReturnTo(): string {
 
 function removeProfileParams(params: URLSearchParams, keys: string[]) {
   for (const key of keys) params.delete(key)
+}
+
+function normalizeHiveProfileMessage(data: unknown): HiveProfileMessage | null {
+  if (typeof data !== 'object' || data === null) return null
+  const message = data as HiveProfileMessage
+  if (typeof message.type !== 'string') return null
+  if (message.profile && !isHiveProfileSnapshot(message.profile)) return null
+  return message
+}
+
+function isHiveProfileSnapshot(profile: unknown): profile is HiveProfileSnapshot {
+  if (typeof profile !== 'object' || profile === null) return false
+  const value = profile as HiveProfileSnapshot
+  return typeof value.id === 'string' && value.id.trim().length > 0
+}
+
+function broadcastHiveProfile(message: HiveProfileMessage) {
+  if (typeof BroadcastChannel === 'undefined' || !message.profile) return
+  const channel = new BroadcastChannel(HIVE_PROFILE_CHANNEL)
+  channel.postMessage({
+    type: 'beeseed:hive-profile-updated',
+    profile: message.profile,
+    changed_fields: message.changed_fields,
+  })
+  channel.close()
 }
 
 function BottomNav({
