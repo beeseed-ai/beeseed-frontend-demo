@@ -107,6 +107,19 @@ body {
   box-shadow: 0 7px 0 rgba(95, 59, 147, 0.2);
 }
 
+.mobile-game-profile-embed-card {
+  overflow: hidden;
+  background: #ffffff;
+  padding: 0;
+}
+
+.mobile-game-profile-embed-frame {
+  position: relative;
+  height: min(34rem, calc(100dvh - 13rem));
+  min-height: 24rem;
+  background: #ffffff;
+}
+
 .mobile-game-member-row {
   display: flex;
   min-width: 0;

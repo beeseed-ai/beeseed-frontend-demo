@@ -18,6 +18,7 @@ import {
   type ChannelWithMeta,
   type ChannelMemberInfo,
   type FeatureView,
+  type AppRuntimeConfig,
 } from '@beeseed/beeseed-sdk'
 import { CloudStoragePanel } from './components/CloudStoragePanel'
 import { MobileTaskPanel } from './components/MobileTaskPanel'
@@ -321,40 +322,68 @@ function MemberSheet({
 }
 
 function ProfilePage({
-  currentChannel,
-  members,
   onAdmin,
-  onAgentSelect,
 }: {
-  currentChannel: ChannelWithMeta | null
-  members: ChannelMemberInfo[]
   onAdmin: () => void
-  onAgentSelect?: (member: ChannelMemberInfo) => void
 }) {
-  const { user, signOut } = useAuth()
-  const version = __STANDARD_TEMPLATE_VERSION__
+  const { user, signOut, init } = useAuth()
+  const { appConfig } = useAppConfig()
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const profileURL = useMemo(() => buildHiveProfileURL(appConfig), [appConfig])
+  const profileOrigin = useMemo(() => {
+    if (!profileURL) return ''
+    try {
+      return new URL(profileURL).origin
+    } catch {
+      return ''
+    }
+  }, [profileURL])
   const isAdmin = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'super_admin'
+
+  useEffect(() => {
+    setLoadingProfile(true)
+  }, [profileURL])
+
+  useEffect(() => {
+    if (!profileOrigin) return
+
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== profileOrigin) return
+      const data = typeof event.data === 'object' && event.data !== null
+        ? event.data as { type?: string }
+        : null
+      if (data?.type === 'beeseed:hive-profile-updated') void init()
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [init, profileOrigin])
 
   return (
     <div className="mobile-game-panel flex h-full min-h-0 flex-col">
-      <MobileTopBar title="个人中心" subtitle={currentChannel?.name || '当前频道'} />
+      <MobileTopBar title="个人中心" subtitle="Hive 账户" />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className="mobile-game-profile-card mb-4 flex items-center gap-3">
-          <Avatar className="h-14 w-14 shrink-0 border-2 border-[#6a4c93] bg-[#7ee7ff]">
-            {user?.avatar_url ? <AvatarImage src={user.avatar_url} /> : null}
-            <AvatarFallback className="bg-[#181d26] text-sm text-white">{user?.name?.[0] || '?'}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-black text-[#5f3b93]">{user?.name || '勇者'}</div>
-            <div className="mt-0.5 truncate text-xs font-bold text-[#9b6ccf]">{user?.email}</div>
-          </div>
-          <div className="rounded-2xl border-2 border-[#6a4c93]/40 bg-white/70 px-2.5 py-1.5 text-[11px] font-black text-[#6a4c93]">
-            v{version}
-          </div>
-        </div>
-
-        <div className="mobile-game-profile-card mb-4">
-          <MemberList currentChannel={currentChannel} members={members} onAgentSelect={onAgentSelect} />
+        <div className="mobile-game-profile-card mobile-game-profile-embed-card mb-4">
+          {profileURL ? (
+            <div className="mobile-game-profile-embed-frame">
+              {loadingProfile && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white text-sm font-black text-[#6a4c93]">
+                  正在加载 Hive 个人中心...
+                </div>
+              )}
+              <iframe
+                title="Hive 个人中心"
+                src={profileURL}
+                className="h-full w-full border-0"
+                onLoad={() => setLoadingProfile(false)}
+                allow="clipboard-write"
+              />
+            </div>
+          ) : (
+            <div className="px-4 py-8 text-center text-sm font-bold leading-6 text-[#6a4c93]">
+              当前应用缺少 Hive 平台入口配置，暂时无法打开个人中心。
+            </div>
+          )}
         </div>
 
         <div className="mobile-game-profile-card">
@@ -380,6 +409,56 @@ function ProfilePage({
       </div>
     </div>
   )
+}
+
+const PROFILE_TOKEN_QUERY_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
+const PROFILE_SIGNED_OUT_KEYS = ['signed_out', 'logout', 'logged_out']
+
+function buildHiveProfileURL(appConfig?: AppRuntimeConfig | null): string {
+  const platformURL = profilePlatformExternalURL(appConfig)
+  if (!platformURL || typeof window === 'undefined') return ''
+
+  const profileURL = new URL('/profile', platformURL)
+  profileURL.searchParams.set('embed', '1')
+  profileURL.searchParams.set('return_to', appProfileReturnTo())
+  profileURL.searchParams.set('origin', window.location.origin)
+  return profileURL.toString()
+}
+
+function profilePlatformExternalURL(appConfig?: AppRuntimeConfig | null): string {
+  const configured = appConfig?.platform?.external_url?.trim()
+  if (configured) return configured.replace(/\/+$/, '')
+  if (typeof window === 'undefined') return ''
+  const { protocol, hostname } = window.location
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return ''
+  const parts = hostname.split('.').filter(Boolean)
+  if (parts.length < 2) return ''
+  parts[0] = 'hive'
+  return `${protocol}//${parts.join('.')}`
+}
+
+function appProfileReturnTo(): string {
+  const url = new URL(window.location.href)
+  removeProfileParams(url.searchParams, PROFILE_TOKEN_QUERY_KEYS)
+  removeProfileParams(url.searchParams, PROFILE_SIGNED_OUT_KEYS)
+
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  let changedHash = false
+  for (const key of [...PROFILE_TOKEN_QUERY_KEYS, ...PROFILE_SIGNED_OUT_KEYS]) {
+    if (hashParams.has(key)) changedHash = true
+    hashParams.delete(key)
+  }
+  if (changedHash) {
+    const nextHash = hashParams.toString()
+    url.hash = nextHash ? '#' + nextHash : ''
+  }
+
+  return url.toString()
+}
+
+function removeProfileParams(params: URLSearchParams, keys: string[]) {
+  for (const key of keys) params.delete(key)
 }
 
 function BottomNav({
@@ -547,7 +626,7 @@ export function RuntimeAppLayout({ className }: { className?: string }) {
             <CloudStoragePanel channelId={currentChannelId} />
           </div>
         ) : activeMobileTab === 'profile' ? (
-          <ProfilePage currentChannel={currentChannel} members={members} onAdmin={openAdmin} onAgentSelect={openAgentCharacter} />
+          <ProfilePage onAdmin={openAdmin} />
         ) : (
           <EmptyState>当前功能暂不可用</EmptyState>
         )}
