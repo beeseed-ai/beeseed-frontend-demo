@@ -1072,14 +1072,45 @@ function MobileAuthPanel({ mode, onModeChange }: {
   )
 }
 
+function appLaunchSubdomain(appConfig?: AppRuntimeConfig | null): string {
+  if (appConfig?.platform?.subdomain) return appConfig.platform.subdomain
+  if (typeof window === 'undefined') return ''
+  return window.location.hostname.split('.')[0] || ''
+}
+
+function platformExternalURL(appConfig?: AppRuntimeConfig | null): string {
+  if (appConfig?.platform?.external_url) return appConfig.platform.external_url
+  if (typeof window === 'undefined') return ''
+  return ''
+}
+
+function buildHiveAppLaunchURL(appConfig?: AppRuntimeConfig | null): string {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain || typeof window === 'undefined') return ''
+
+  const launchURL = new URL('/app-launch', platformURL)
+  launchURL.searchParams.set('subdomain', subdomain)
+  launchURL.searchParams.set('return_to', `${window.location.pathname}${window.location.search}${window.location.hash}`)
+  return launchURL.toString()
+}
+
 function AuthScreen() {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const { appConfig } = useAppConfig()
+  const launchURL = useMemo(() => buildHiveAppLaunchURL(appConfig), [appConfig])
+
+  useEffect(() => {
+    if (launchURL) window.location.replace(launchURL)
+  }, [launchURL])
 
   return (
-    <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col items-center justify-center overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center">
       <MobileAuthBrand />
-      <div className="mx-auto w-full max-w-sm">
-        <MobileAuthPanel mode={mode} onModeChange={setMode} />
+      <div className="mx-auto mt-4 w-full max-w-sm rounded-[28px] border-4 border-[#2a1854] bg-white p-5 shadow-[0_10px_0_rgba(42,24,84,0.18)]">
+        <p className="text-base font-black text-[#2a1854]">正在进入应用</p>
+        <p className="mt-2 text-sm leading-6 text-[#5f3b93]">
+          {launchURL ? '请稍候，正在前往 Hive 完成身份校验。' : '当前应用缺少 Hive 入口配置，暂时无法进入。'}
+        </p>
       </div>
     </div>
   )
