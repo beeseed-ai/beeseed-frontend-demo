@@ -501,6 +501,41 @@ export default defineConfig({
           if (info.names?.[0]?.endsWith('.css') || info.name?.endsWith('.css')) return 'app-[hash][extname]'
           return '[name][extname]'
         },
+        manualChunks(id) {
+          const normalized = id.split(path.sep).join('/')
+          if (normalized.includes('/node_modules/react/') || normalized.includes('/node_modules/react-dom/')) {
+            return 'react'
+          }
+          if (
+            normalized.includes('/node_modules/react-markdown/')
+            || normalized.includes('/node_modules/remark-')
+            || normalized.includes('/node_modules/mdast-')
+            || normalized.includes('/node_modules/micromark')
+            || normalized.includes('/node_modules/hast-')
+            || normalized.includes('/node_modules/unist-')
+          ) {
+            return 'markdown'
+          }
+          if (
+            normalized.includes('/node_modules/sigma/')
+            || normalized.includes('/node_modules/graphology')
+            || normalized.includes('/node_modules/@sigma/')
+          ) {
+            return 'graph'
+          }
+          if (normalized.includes('/beeseed-sdk/src/')) {
+            if (normalized.includes('/beeseed-sdk/src/components/admin/')) return 'sdk-admin'
+            if (normalized.includes('/beeseed-sdk/src/components/chat/')) return 'sdk-chat'
+            if (normalized.includes('/beeseed-sdk/src/components/layout/')) return 'sdk-layout'
+            return 'sdk-core'
+          }
+          if (normalized.includes('/node_modules/lucide-react/')) {
+            return 'icons'
+          }
+          if (normalized.includes('/node_modules/')) {
+            return 'vendor'
+          }
+        },
       },
     },
   },

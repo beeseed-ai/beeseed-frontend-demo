@@ -24,6 +24,8 @@ import {
   type Message,
   type StorageObject,
   type AppRuntimeConfig,
+  type PublicHomeConfig,
+  type PublicHomeTemplateID,
   type AgentLoopToolCall,
   type StreamState,
   type Task,
@@ -51,8 +53,10 @@ const TOKEN_STORAGE_KEY = 'beeseed_token'
 const LAUNCH_TOKEN_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const TOKEN_QUERY_RE = /([?#&](?:beeseed_launch_token|beeseed_token|token|auth_token|access_token)=)[^&#\s]*/gi
 const INVITE_CODE_KEYS = ['invite_code', 'invite']
+const SHARE_TOKEN_KEYS = ['share_id', 'share']
 const SIGNED_OUT_KEYS = ['signed_out']
 const APP_SIGNED_OUT_STORAGE_KEY = 'beeseed:app-signed-out:v1'
+const APP_VISITOR_SESSION_KEY = 'beeseed:app-visitor-session:v1'
 const LAST_CHANNEL_STORAGE_PREFIX = 'beeseed:last-channel:v1'
 const STORAGE_MISSING_TOOLS = new Set(['storage_read', 'storage_info'])
 const STORAGE_MISSING_ERROR_RE = /\bno rows in result set\b/i
@@ -869,6 +873,312 @@ async function loadRuntimeConfig(): Promise<AppRuntimeConfig> {
   )
 }
 
+interface AppPublicContext {
+  name: string
+  description?: string
+  org_name?: string
+  registration_enabled?: boolean
+}
+
+interface PublicHomeTemplate {
+  label: string
+  accent: string
+  surface: string
+  chip: string
+  defaults: {
+    eyebrow: string
+    title: string
+    subtitle: string
+    primary: string
+    secondary: string
+    features: string[]
+    audiences: string[]
+    capabilities: PublicHomeTextBlock[]
+    workflow: PublicHomeTextBlock[]
+    metrics: PublicHomeMetric[]
+    closingTitle: string
+    closingSubtitle: string
+  }
+}
+
+interface PublicHomeTextBlock {
+  title: string
+  description?: string
+}
+
+interface PublicHomeMetric {
+  value: string
+  label: string
+}
+
+interface ResolvedPublicHome {
+  template: PublicHomeTemplate
+  eyebrow: string
+  title: string
+  subtitle: string
+  primary: string
+  secondary: string
+  features: string[]
+  audiences: string[]
+  capabilities: PublicHomeTextBlock[]
+  workflow: PublicHomeTextBlock[]
+  metrics: PublicHomeMetric[]
+  closingTitle: string
+  closingSubtitle: string
+  coverImage?: string
+}
+
+const PUBLIC_HOME_TEMPLATES: Record<PublicHomeTemplateID, PublicHomeTemplate> = {
+  ai_workspace: {
+    label: '企业效率',
+    accent: '#181d26',
+    surface: '#f8fafc',
+    chip: '#fcab79',
+    defaults: {
+      eyebrow: 'AI 工作台',
+      title: '把知识、任务和团队协作放进同一个 App',
+      subtitle: '为团队提供统一的 AI 入口，让成员从分享链接注册后直接进入专属工作空间。',
+      primary: '注册并进入',
+      secondary: '已有账号登录',
+      features: ['多 Agent 协作', '知识库问答', '任务持续推进', '文档自动整理', '成员权限管理'],
+      audiences: ['需要统一 AI 入口的管理团队', '有大量内部文档和流程的运营团队', '按项目交付结果的服务团队', '希望沉淀经验的新业务团队'],
+      capabilities: [
+        { title: '团队知识入口', description: '制度、方案、客户资料和历史对话都能被检索和追问。' },
+        { title: '任务推进面板', description: '从对话中拆出待办、负责人和截止时间。' },
+        { title: '多角色协作', description: '研究、运营、客服和项目管理 Agent 一起工作。' },
+        { title: '可追溯记录', description: '每次讨论、文件和结论都留在频道中。' },
+      ],
+      workflow: [
+        { title: '进入工作台', description: '成员从分享链接注册后自动进入当前 App。' },
+        { title: '选择频道', description: '按项目、客户或主题建立协作空间。' },
+        { title: '持续推进', description: '把输出转成任务、资料和长期记忆。' },
+      ],
+      metrics: [
+        { value: '3 分钟', label: '搭建入口' },
+        { value: '24/7', label: '持续响应' },
+        { value: '1 链接', label: '分享归因' },
+      ],
+      closingTitle: '让每个团队都有自己的 AI 协作入口',
+      closingSubtitle: '公开主页承接注册，App 内负责知识、任务和成员协作。',
+    },
+  },
+  education: {
+    label: '教育培训',
+    accent: '#d9a441',
+    surface: '#fff8e1',
+    chip: '#181d26',
+    defaults: {
+      eyebrow: '学习空间',
+      title: '让每个学员进入自己的 AI 学习主页',
+      subtitle: '公开页承接课程介绍、注册入口和学习目标，登录后进入专属辅导与任务跟踪。',
+      primary: '加入学习',
+      secondary: '学员登录',
+      features: ['学习诊断', '测验复习', '成长报告', '课程资料问答', '作业跟进'],
+      audiences: ['课程训练营和陪跑社群', '职业考试和证书培训', '一对一导师服务', '企业内训项目'],
+      capabilities: [
+        { title: '入学诊断', description: '快速了解学员基础、目标和薄弱点。' },
+        { title: '课程资料问答', description: '课件、讲义和案例都可以随时追问。' },
+        { title: '复习测验', description: '围绕章节生成题目、解析和建议。' },
+        { title: '成长记录', description: '持续记录问题、任务和反馈。' },
+      ],
+      workflow: [
+        { title: '了解课程', description: '先看适合谁和能解决什么问题。' },
+        { title: '进入学习空间', description: '注册后自动进入对应 App。' },
+        { title: '诊断和复盘', description: '从诊断到报告形成学习闭环。' },
+      ],
+      metrics: [
+        { value: '5 类', label: '内容组织' },
+        { value: '随时', label: '课后追问' },
+        { value: '闭环', label: '学习跟踪' },
+      ],
+      closingTitle: '把课程介绍页升级成学习入口',
+      closingSubtitle: '公开访问、注册归因、课程问答和学习跟进在同一个 App 中完成。',
+    },
+  },
+  consulting: {
+    label: '专业咨询',
+    accent: '#0a2e0e',
+    surface: '#f4faf4',
+    chip: '#a8d8c4',
+    defaults: {
+      eyebrow: '专家服务',
+      title: '把专业服务交付成可持续跟进的 AI 空间',
+      subtitle: '客户从公开页了解服务范围，注册后进入安全的咨询、资料和任务协同环境。',
+      primary: '开始咨询',
+      secondary: '客户登录',
+      features: ['资料收集', '过程记录', '交付跟进', '风险提示', '方案沉淀'],
+      audiences: ['顾问和研究团队', '医疗、法律、财税等专业服务', '客户成功团队', '高客单价咨询项目'],
+      capabilities: [
+        { title: '资料收集', description: '客户背景、附件、问题和目标集中到频道。' },
+        { title: '过程记录', description: '判断、依据、追问和结论可追溯。' },
+        { title: '交付跟踪', description: '下一步动作、负责人和时间点形成任务。' },
+        { title: '方案沉淀', description: '重复问题和交付模板变成知识资产。' },
+      ],
+      workflow: [
+        { title: '了解服务', description: '公开页说明范围、边界和协作方式。' },
+        { title: '提交背景', description: '客户注册后补充资料并保留来源。' },
+        { title: '持续交付', description: '围绕频道完成追问、文件和任务。' },
+      ],
+      metrics: [
+        { value: '清晰', label: '服务边界' },
+        { value: '可追溯', label: '交付记录' },
+        { value: '持续', label: '任务跟进' },
+      ],
+      closingTitle: '让专业服务从一次沟通变成持续交付',
+      closingSubtitle: '用公开主页承接客户，用 App 管理资料、过程和后续行动。',
+    },
+  },
+  community: {
+    label: '社群知识',
+    accent: '#1a3866',
+    surface: '#f3f8ff',
+    chip: '#a8d8c4',
+    defaults: {
+      eyebrow: '会员社区',
+      title: '为成员提供一个持续更新的知识入口',
+      subtitle: '把内容、问答、任务和成员协作集中到 App，公开页负责承接新成员注册。',
+      primary: '加入社区',
+      secondary: '会员登录',
+      features: ['知识沉淀', '成员协作', '长期陪伴', '活动通知', '内容导航'],
+      audiences: ['会员社群和付费社区', '创作者粉丝知识库', '行业学习小组', '品牌客户社区'],
+      capabilities: [
+        { title: '内容导航', description: '文章、课程、回放和资料变成可问答入口。' },
+        { title: '成员问答', description: '新成员先问 AI，管理员处理高价值问题。' },
+        { title: '社群任务', description: '打卡、活动、共创和项目可以跟进。' },
+        { title: '社区沉淀', description: '高频问题和优质回答持续积累。' },
+      ],
+      workflow: [
+        { title: '了解社群', description: '看到内容、服务和陪伴方式。' },
+        { title: '进入会员空间', description: '从链接注册后直接进入社区。' },
+        { title: '参与和沉淀', description: '成员提问、参与任务并积累知识。' },
+      ],
+      metrics: [
+        { value: '长期', label: '内容沉淀' },
+        { value: '低重复', label: '减少答疑' },
+        { value: '可运营', label: '任务跟进' },
+      ],
+      closingTitle: '让社群拥有一个能持续增长的知识主页',
+      closingSubtitle: '公开页负责介绍和转化，App 内负责问答、活动和成员关系。',
+    },
+  },
+  creative: {
+    label: '内容创作',
+    accent: '#aa2d00',
+    surface: '#fff4ed',
+    chip: '#f4d35e',
+    defaults: {
+      eyebrow: '创作工作流',
+      title: '从灵感到交付，建立你的 AI 创作空间',
+      subtitle: '公开页展示创作服务与案例，注册后进入素材、任务和生成流程的统一界面。',
+      primary: '开始创作',
+      secondary: '团队登录',
+      features: ['选题策划', '素材管理', '内容生成', '审稿协作', '发布复盘'],
+      audiences: ['自媒体和内容团队', '营销活动和品牌团队', '设计、视频、文案工作室', '需要稳定输出的创作者'],
+      capabilities: [
+        { title: '选题策划', description: '从热点、用户问题和品牌目标组织选题。' },
+        { title: '素材管理', description: '案例、图片、访谈和历史稿件可检索。' },
+        { title: '生成改写', description: '生成初稿、标题、脚本和分发文案。' },
+        { title: '审稿复盘', description: '修改意见和发布结果沉淀为风格记忆。' },
+      ],
+      workflow: [
+        { title: '展示服务', description: '公开页说明服务内容和协作方式。' },
+        { title: '进入空间', description: '客户或成员从链接进入项目。' },
+        { title: '策划到复盘', description: '选题、生产和反馈持续沉淀。' },
+      ],
+      metrics: [
+        { value: '一站式', label: '完整链路' },
+        { value: '多平台', label: '内容适配' },
+        { value: '可复用', label: '素材沉淀' },
+      ],
+      closingTitle: '把创意协作变成稳定输出的工作流',
+      closingSubtitle: '公开主页承接需求，App 内完成素材、任务、生成和审稿协作。',
+    },
+  },
+}
+
+function cleanPublicHomeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function publicHomeTemplateID(value: unknown): PublicHomeTemplateID {
+  return value === 'education' || value === 'consulting' || value === 'community' || value === 'creative' || value === 'ai_workspace'
+    ? value
+    : 'ai_workspace'
+}
+
+function cleanPublicHomeFeatures(value: PublicHomeConfig['features'], fallback: string[]) {
+  const features = Array.isArray(value)
+    ? value.map((item) => cleanPublicHomeText(item)).filter(Boolean).slice(0, 5)
+    : []
+  return features.length > 0 ? features : fallback
+}
+
+function cleanPublicHomeList(value: PublicHomeConfig['audiences'], fallback: string[], maxItems: number) {
+  const items = Array.isArray(value)
+    ? value.map((item) => cleanPublicHomeText(item)).filter(Boolean).slice(0, maxItems)
+    : []
+  return items.length > 0 ? items : fallback
+}
+
+function cleanPublicHomeBlocks(value: PublicHomeConfig['capabilities'], fallback: PublicHomeTextBlock[], maxItems: number) {
+  const items = Array.isArray(value)
+    ? value.map((item) => ({
+      title: cleanPublicHomeText(item?.title),
+      description: cleanPublicHomeText(item?.description),
+    })).filter((item) => item.title).slice(0, maxItems)
+    : []
+  return items.length > 0 ? items : fallback
+}
+
+function cleanPublicHomeMetrics(value: PublicHomeConfig['metrics'], fallback: PublicHomeMetric[]) {
+  const items = Array.isArray(value)
+    ? value.map((item) => ({
+      value: cleanPublicHomeText(item?.value),
+      label: cleanPublicHomeText(item?.label),
+    })).filter((item) => item.value && item.label).slice(0, 4)
+    : []
+  return items.length > 0 ? items : fallback
+}
+
+function resolvePublicHome(appConfig: AppRuntimeConfig | null | undefined, appTitle: string, appDescription: string): ResolvedPublicHome {
+  const config = appConfig?.public_home
+  const template = PUBLIC_HOME_TEMPLATES[publicHomeTemplateID(config?.template)]
+  if (config?.enabled === false) {
+    return {
+      template,
+      eyebrow: 'Hive 安全入口',
+      title: appTitle,
+      subtitle: appDescription,
+      primary: '注册并进入',
+      secondary: '已有账号登录',
+      features: template.defaults.features,
+      audiences: template.defaults.audiences,
+      capabilities: template.defaults.capabilities,
+      workflow: template.defaults.workflow,
+      metrics: template.defaults.metrics,
+      closingTitle: template.defaults.closingTitle,
+      closingSubtitle: template.defaults.closingSubtitle,
+      coverImage: undefined,
+    }
+  }
+  return {
+    template,
+    eyebrow: cleanPublicHomeText(config?.eyebrow) || template.defaults.eyebrow,
+    title: cleanPublicHomeText(config?.title) || appTitle || template.defaults.title,
+    subtitle: cleanPublicHomeText(config?.subtitle) || appDescription || template.defaults.subtitle,
+    primary: cleanPublicHomeText(config?.primary_cta) || template.defaults.primary,
+    secondary: cleanPublicHomeText(config?.secondary_cta) || template.defaults.secondary,
+    features: cleanPublicHomeFeatures(config?.features, template.defaults.features),
+    audiences: cleanPublicHomeList(config?.audiences, template.defaults.audiences, 8),
+    capabilities: cleanPublicHomeBlocks(config?.capabilities, template.defaults.capabilities, 6),
+    workflow: cleanPublicHomeBlocks(config?.workflow, template.defaults.workflow, 5),
+    metrics: cleanPublicHomeMetrics(config?.metrics, template.defaults.metrics),
+    closingTitle: cleanPublicHomeText(config?.closing_title) || template.defaults.closingTitle,
+    closingSubtitle: cleanPublicHomeText(config?.closing_subtitle) || template.defaults.closingSubtitle,
+    coverImage: cleanPublicHomeText(config?.cover_image_url) || undefined,
+  }
+}
+
 interface RuntimeErrorBoundaryState {
   error: Error | null
 }
@@ -946,11 +1256,12 @@ function MobileGameMascot() {
   )
 }
 
-function MobileAuthBrand() {
+function MobileAuthBrand({ titleAsHeading = true }: { titleAsHeading?: boolean }) {
   const { branding } = useAppConfig()
   const [logoFailed, setLogoFailed] = useState(false)
   const hasLogo = Boolean(branding.logo && !logoFailed)
   const initial = Array.from(branding.title)[0] || 'B'
+  const titleClassName = 'mobile-game-title text-[1.85rem] font-black leading-tight'
 
   return (
     <div className="mobile-game-auth-brand flex shrink-0 flex-col items-center px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))] text-center">
@@ -968,7 +1279,11 @@ function MobileAuthBrand() {
           </div>
         )}
         <MobileGameMascot />
-        <h1 className="mobile-game-title text-[1.85rem] font-black leading-tight">{branding.title}</h1>
+        {titleAsHeading ? (
+          <h1 className={titleClassName}>{branding.title}</h1>
+        ) : (
+          <div className={titleClassName}>{branding.title}</div>
+        )}
         <p className="mobile-game-auth-desc mt-2 rounded-full border-2 border-[#6a4c93]/30 bg-white/60 px-3 py-1 text-xs font-bold leading-5 text-[#6a4c93]">{branding.description}</p>
       </div>
     </div>
@@ -1131,14 +1446,42 @@ function MobileAuthPanel({ mode, onModeChange }: {
 }
 
 function appLaunchSubdomain(appConfig?: AppRuntimeConfig | null): string {
-  if (appConfig?.platform?.subdomain) return appConfig.platform.subdomain
+  const configured = appConfig?.platform?.subdomain?.trim()
+  if (configured) return configured
   if (typeof window === 'undefined') return ''
-  return window.location.hostname.split('.')[0] || ''
+  const host = window.location.hostname
+  const appDomain = appConfig?.platform?.app_domain?.replace(/^\./, '').trim()
+  if (appDomain && host.endsWith(`.${appDomain}`)) {
+    return host.slice(0, -(appDomain.length + 1))
+  }
+  return host.split('.')[0] || ''
 }
 
 function platformExternalURL(appConfig?: AppRuntimeConfig | null): string {
-  if (appConfig?.platform?.external_url) return appConfig.platform.external_url
+  const configured = appConfig?.platform?.external_url?.trim()
+  if (configured) return configured.replace(/\/+$/, '')
   if (typeof window === 'undefined') return ''
+  const { protocol, hostname } = window.location
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return ''
+  const parts = hostname.split('.').filter(Boolean)
+  if (parts.length < 2) return ''
+  parts[0] = 'hive'
+  return `${protocol}//${parts.join('.')}`
+}
+
+function readShareTokenFromLocation(): string {
+  if (typeof window === 'undefined') return ''
+  const url = new URL(window.location.href)
+  for (const key of SHARE_TOKEN_KEYS) {
+    const value = url.searchParams.get(key)?.trim()
+    if (value) return value
+  }
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  for (const key of SHARE_TOKEN_KEYS) {
+    const value = hashParams.get(key)?.trim()
+    if (value) return value
+  }
   return ''
 }
 
@@ -1211,7 +1554,95 @@ function buildHiveAppLaunchURL(appConfig?: AppRuntimeConfig | null): string {
   launchURL.searchParams.set('return_to', appReturnToWithoutInviteCode())
   const inviteCode = readInviteCodeFromLocation()
   if (inviteCode) launchURL.searchParams.set('invite_code', inviteCode)
+  const shareToken = readShareTokenFromLocation()
+  if (shareToken) launchURL.searchParams.set('share_id', shareToken)
+  const visitorSessionID = appVisitorSessionID()
+  if (visitorSessionID) launchURL.searchParams.set('visitor_session_id', visitorSessionID)
   return launchURL.toString()
+}
+
+function buildHiveAuthURL(appConfig: AppRuntimeConfig | null | undefined, mode: 'login' | 'register'): string {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain || typeof window === 'undefined') return ''
+
+  const launchURL = new URL('/app-launch', platformURL)
+  launchURL.searchParams.set('subdomain', subdomain)
+  launchURL.searchParams.set('return_to', appReturnToWithoutInviteCode())
+  const inviteCode = readInviteCodeFromLocation()
+  if (inviteCode) launchURL.searchParams.set('invite_code', inviteCode)
+  const shareToken = readShareTokenFromLocation()
+  if (shareToken) launchURL.searchParams.set('share_id', shareToken)
+  const visitorSessionID = appVisitorSessionID()
+  if (visitorSessionID) launchURL.searchParams.set('visitor_session_id', visitorSessionID)
+
+  const authURL = new URL(mode === 'register' ? '/register' : '/login', platformURL)
+  authURL.searchParams.set('return_to', `${launchURL.pathname}${launchURL.search}${launchURL.hash}`)
+  authURL.searchParams.set('app_subdomain', subdomain)
+  if (shareToken) authURL.searchParams.set('share_id', shareToken)
+  if (visitorSessionID) authURL.searchParams.set('visitor_session_id', visitorSessionID)
+  return authURL.toString()
+}
+
+function appVisitorSessionID(): string {
+  try {
+    const existing = window.localStorage.getItem(APP_VISITOR_SESSION_KEY)
+    if (existing) return existing
+    const next = typeof window.crypto?.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `visitor-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    window.localStorage.setItem(APP_VISITOR_SESSION_KEY, next)
+    return next
+  } catch {
+    return ''
+  }
+}
+
+async function fetchAppPublicContext(appConfig: AppRuntimeConfig | null | undefined): Promise<AppPublicContext | null> {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain) return null
+  try {
+    const url = new URL('/api/apps/context', platformURL)
+    url.searchParams.set('subdomain', subdomain)
+    url.searchParams.set('return_to', appReturnToWithoutInviteCode())
+    const shareToken = readShareTokenFromLocation()
+    if (shareToken) url.searchParams.set('share_id', shareToken)
+    const response = await fetch(url.toString(), { cache: 'no-store' })
+    if (!response.ok) return null
+    return await response.json() as AppPublicContext
+  } catch {
+    return null
+  }
+}
+
+function recordAppAcquisitionEvent(appConfig: AppRuntimeConfig | null | undefined, eventType: 'view_home' | 'click_login' | 'click_register') {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain) return
+  const url = new URL('/api/apps/acquisition-events', platformURL)
+  const payload = JSON.stringify({
+    subdomain,
+    event_type: eventType,
+    share_id: readShareTokenFromLocation() || undefined,
+    visitor_session_id: appVisitorSessionID() || undefined,
+    landing_url: window.location.href,
+    return_to: appReturnToWithoutInviteCode(),
+  })
+  try {
+    if (typeof navigator.sendBeacon === 'function') {
+      const blob = new Blob([payload], { type: 'text/plain' })
+      if (navigator.sendBeacon(url.toString(), blob)) return
+    }
+  } catch {
+    // Fall back to fetch below.
+  }
+  void fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: payload,
+    keepalive: true,
+  }).catch(() => {})
 }
 
 function buildHiveLogoutURL(appConfig?: AppRuntimeConfig | null): string {
@@ -1230,46 +1661,146 @@ function beginHiveLogout(appConfig?: AppRuntimeConfig | null) {
 }
 
 function AuthScreen() {
-  const { appConfig } = useAppConfig()
+  const { appConfig, branding } = useAppConfig()
   const [signedOut, setSignedOut] = useState(() => isAppSignedOut())
-  const launchURL = useMemo(() => signedOut ? '' : buildHiveAppLaunchURL(appConfig), [appConfig, signedOut])
+  const [publicContext, setPublicContext] = useState<AppPublicContext | null>(null)
+  const viewRecordedRef = useRef(false)
+  const loginURL = useMemo(() => buildHiveAuthURL(appConfig, 'login'), [appConfig])
+  const registerURL = useMemo(() => buildHiveAuthURL(appConfig, 'register'), [appConfig])
+  const launchURL = useMemo(() => buildHiveAppLaunchURL(appConfig), [appConfig])
+  const canRegister = publicContext?.registration_enabled !== false
+  const appTitle = publicContext?.name || branding.title
+  const appDescription = publicContext?.description || branding.description
+  const publicHome = useMemo(
+    () => resolvePublicHome(appConfig, appTitle, appDescription),
+    [appConfig, appTitle, appDescription],
+  )
 
   useEffect(() => {
-    if (launchURL) window.location.replace(launchURL)
-  }, [launchURL])
+    let active = true
+    void fetchAppPublicContext(appConfig).then((context) => {
+      if (active) setPublicContext(context)
+    })
+    return () => { active = false }
+  }, [appConfig])
 
-  function handleSignInAgain() {
+  useEffect(() => {
+    if (viewRecordedRef.current) return
+    viewRecordedRef.current = true
+    recordAppAcquisitionEvent(appConfig, 'view_home')
+  }, [appConfig])
+
+  function goToAuth(mode: 'login' | 'register') {
     setAppSignedOut(false)
     setSignedOut(false)
-    const nextURL = buildHiveAppLaunchURL(appConfig)
-    if (nextURL) window.location.replace(nextURL)
+    recordAppAcquisitionEvent(appConfig, mode === 'register' ? 'click_register' : 'click_login')
+    const nextURL = mode === 'register' ? registerURL : loginURL
+    if (nextURL) window.location.assign(nextURL)
   }
 
-  if (signedOut) {
+  if (!loginURL && !registerURL && !launchURL) {
     return (
       <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col items-center justify-center overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center">
         <MobileAuthBrand />
         <div className="mx-auto mt-4 w-full max-w-sm rounded-[28px] border-4 border-[#2a1854] bg-white p-5 shadow-[0_10px_0_rgba(42,24,84,0.18)]">
-          <p className="text-base font-black text-[#2a1854]">已退出登录</p>
+          <p className="text-base font-black text-[#2a1854]">应用入口暂不可用</p>
           <p className="mt-2 text-sm leading-6 text-[#5f3b93]">
-            当前应用会话和 Hive 登录态已清理。重新登录后可以继续进入应用。
+            当前应用缺少 Hive 入口配置，请稍后再试。
           </p>
-          <Button className="mt-5 w-full" onClick={handleSignInAgain}>
-            重新登录
-          </Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col items-center justify-center overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center">
-      <MobileAuthBrand />
-      <div className="mx-auto mt-4 w-full max-w-sm rounded-[28px] border-4 border-[#2a1854] bg-white p-5 shadow-[0_10px_0_rgba(42,24,84,0.18)]">
-        <p className="text-base font-black text-[#2a1854]">正在进入应用</p>
-        <p className="mt-2 text-sm leading-6 text-[#5f3b93]">
-          {launchURL ? '请稍候，正在前往 Hive 完成身份校验。' : '当前应用缺少 Hive 入口配置，暂时无法进入。'}
-        </p>
+    <div className="mobile-game-auth-screen flex h-[100dvh] min-h-[100dvh] flex-col overflow-y-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center">
+      <div className="flex items-center justify-end gap-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <Button className="h-10 rounded-2xl border-2 border-[#6a4c93] bg-white px-4 text-sm font-black text-[#5f3b93] shadow-[0_3px_0_rgba(95,59,147,0.18)]" onClick={() => goToAuth('login')}>
+          登录
+        </Button>
+        {canRegister && (
+          <Button className="mobile-game-primary-button h-10 px-4 text-sm" onClick={() => goToAuth('register')}>
+            注册
+          </Button>
+        )}
+      </div>
+      <MobileAuthBrand titleAsHeading={false} />
+      <div className="mx-auto w-full max-w-sm rounded-[28px] border-4 border-[#2a1854] bg-white p-5 text-left shadow-[0_10px_0_rgba(42,24,84,0.18)]">
+        {publicHome.coverImage && (
+          <img src={publicHome.coverImage} alt="" className="mb-4 h-36 w-full rounded-[20px] border-2 border-[#6a4c93]/30 object-cover" />
+        )}
+        {signedOut && (
+          <div className="mb-3 inline-flex rounded-full border-2 border-[#6a4c93]/30 bg-[#fff7cf] px-3 py-1 text-xs font-black text-[#5f3b93]">
+            已退出登录
+          </div>
+        )}
+        <p className="text-xs font-black uppercase tracking-normal text-[#9b6ccf]">{publicHome.eyebrow}</p>
+        <h1 className="mt-2 text-2xl font-black leading-tight text-[#2a1854]">{publicHome.title}</h1>
+        <p className="mt-3 text-sm font-bold leading-6 text-[#5f3b93]">{publicHome.subtitle}</p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          {publicHome.features.slice(0, 4).map((feature) => (
+            <div key={feature} className="rounded-2xl border-2 border-[#6a4c93]/30 p-3" style={{ backgroundColor: publicHome.template.surface }}>
+              <div className="text-xs font-black text-[#9b6ccf]">{feature}</div>
+              <div className="mt-4 h-2 rounded-full" style={{ backgroundColor: publicHome.template.accent }} />
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          {publicHome.metrics.slice(0, 3).map((metric) => (
+            <div key={`${metric.value}-${metric.label}`} className="rounded-2xl border-2 border-[#6a4c93]/25 bg-[#fff7cf] p-2 text-center">
+              <div className="text-sm font-black text-[#5f3b93]">{metric.value}</div>
+              <div className="mt-1 text-[11px] font-bold leading-4 text-[#8b66b5]">{metric.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 rounded-[22px] border-2 border-[#6a4c93]/25 bg-white/70 p-4">
+          <div className="text-xs font-black text-[#9b6ccf]">适合谁</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {publicHome.audiences.slice(0, 4).map((audience) => (
+              <span key={audience} className="rounded-full bg-[#f3e7ff] px-3 py-1 text-xs font-bold leading-5 text-[#5f3b93]">
+                {audience}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          {publicHome.capabilities.slice(0, 4).map((item) => (
+            <div key={item.title} className="rounded-[20px] border-2 border-[#6a4c93]/25 bg-white p-3">
+              <div className="text-sm font-black text-[#5f3b93]">{item.title}</div>
+              <div className="mt-1 text-xs font-bold leading-5 text-[#7c5aa0]">{item.description}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-[22px] border-2 border-[#6a4c93]/25 bg-[#fff7cf] p-4">
+          <div className="text-xs font-black text-[#9b6ccf]">如何开始</div>
+          <div className="mt-3 space-y-3">
+            {publicHome.workflow.slice(0, 3).map((item, index) => (
+              <div key={item.title} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2">
+                <div className="flex size-7 items-center justify-center rounded-full text-xs font-black text-white" style={{ backgroundColor: publicHome.template.accent }}>
+                  {index + 1}
+                </div>
+                <div>
+                  <div className="text-sm font-black text-[#5f3b93]">{item.title}</div>
+                  <div className="mt-0.5 text-xs font-bold leading-5 text-[#7c5aa0]">{item.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 rounded-[24px] border-2 border-[#2a1854] p-4 text-white" style={{ backgroundColor: publicHome.template.accent }}>
+          <div className="text-base font-black leading-6">{publicHome.closingTitle}</div>
+          <div className="mt-2 text-xs font-bold leading-5 text-white/80">{publicHome.closingSubtitle}</div>
+        </div>
+        <div className="mt-5 space-y-2">
+          {canRegister && (
+            <Button className="mobile-game-primary-button h-12 w-full text-base" onClick={() => goToAuth('register')}>
+              {publicHome.primary}
+            </Button>
+          )}
+          <Button className="h-12 w-full rounded-2xl border-2 border-[#6a4c93] bg-white text-base font-black text-[#5f3b93] shadow-[0_4px_0_rgba(95,59,147,0.18)]" onClick={() => goToAuth('login')}>
+            {publicHome.secondary}
+          </Button>
+        </div>
       </div>
     </div>
   )

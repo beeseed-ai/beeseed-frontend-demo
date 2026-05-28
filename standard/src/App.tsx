@@ -1,4 +1,4 @@
-import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import {
   BeeSeedProvider,
@@ -22,14 +22,14 @@ import {
   type Message,
   type StorageObject,
   type AppRuntimeConfig,
+  type PublicHomeConfig,
+  type PublicHomeTemplateID,
   type AgentLoopToolCall,
   type StreamState,
   type Task,
   type AskUserQuestion,
 } from '@beeseed/beeseed-sdk'
 import { installImagePreviewOptimizer } from './imagePreviewOptimizer'
-import { RuntimeAppLayout } from './runtime-layout'
-import { AgentLoopFixturePage } from './agent-loop-fixture'
 import {
   MODEL_STREAM_INTERRUPTED_AGENT_MESSAGE,
   MODEL_STREAM_INTERRUPTED_TASK_MESSAGE,
@@ -41,6 +41,8 @@ import {
 } from './runtime-recovery'
 import { installRuntimeStorageSafety } from './storage-safety'
 
+const RuntimeAppLayout = lazy(() => import('./runtime-layout').then((module) => ({ default: module.RuntimeAppLayout })))
+const AgentLoopFixturePage = lazy(() => import('./agent-loop-fixture').then((module) => ({ default: module.AgentLoopFixturePage })))
 const DEFAULT_RUNTIME_CONFIG: AppRuntimeConfig = {}
 if (typeof window !== 'undefined') {
   installRuntimeStorageSafety()
@@ -49,8 +51,10 @@ const TOKEN_STORAGE_KEY = 'beeseed_token'
 const LAUNCH_TOKEN_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const TOKEN_QUERY_RE = /([?#&](?:beeseed_launch_token|beeseed_token|token|auth_token|access_token)=)[^&#\s]*/gi
 const INVITE_CODE_KEYS = ['invite_code', 'invite']
+const SHARE_TOKEN_KEYS = ['share_id', 'share']
 const SIGNED_OUT_KEYS = ['signed_out']
 const APP_SIGNED_OUT_STORAGE_KEY = 'beeseed:app-signed-out:v1'
+const APP_VISITOR_SESSION_KEY = 'beeseed:app-visitor-session:v1'
 const LAST_CHANNEL_STORAGE_PREFIX = 'beeseed:last-channel:v1'
 const STORAGE_MISSING_TOOLS = new Set(['storage_read', 'storage_info'])
 const STORAGE_MISSING_ERROR_RE = /\bno rows in result set\b/i
@@ -867,6 +871,312 @@ async function loadRuntimeConfig(): Promise<AppRuntimeConfig> {
   )
 }
 
+interface AppPublicContext {
+  name: string
+  description?: string
+  org_name?: string
+  registration_enabled?: boolean
+}
+
+interface PublicHomeTemplate {
+  label: string
+  accent: string
+  surface: string
+  chip: string
+  defaults: {
+    eyebrow: string
+    title: string
+    subtitle: string
+    primary: string
+    secondary: string
+    features: string[]
+    audiences: string[]
+    capabilities: PublicHomeTextBlock[]
+    workflow: PublicHomeTextBlock[]
+    metrics: PublicHomeMetric[]
+    closingTitle: string
+    closingSubtitle: string
+  }
+}
+
+interface PublicHomeTextBlock {
+  title: string
+  description?: string
+}
+
+interface PublicHomeMetric {
+  value: string
+  label: string
+}
+
+interface ResolvedPublicHome {
+  template: PublicHomeTemplate
+  eyebrow: string
+  title: string
+  subtitle: string
+  primary: string
+  secondary: string
+  features: string[]
+  audiences: string[]
+  capabilities: PublicHomeTextBlock[]
+  workflow: PublicHomeTextBlock[]
+  metrics: PublicHomeMetric[]
+  closingTitle: string
+  closingSubtitle: string
+  coverImage?: string
+}
+
+const PUBLIC_HOME_TEMPLATES: Record<PublicHomeTemplateID, PublicHomeTemplate> = {
+  ai_workspace: {
+    label: '企业效率',
+    accent: '#181d26',
+    surface: '#f8fafc',
+    chip: '#fcab79',
+    defaults: {
+      eyebrow: 'AI 工作台',
+      title: '把知识、任务和团队协作放进同一个 App',
+      subtitle: '为团队提供统一的 AI 入口，让成员从分享链接注册后直接进入专属工作空间。',
+      primary: '注册并进入',
+      secondary: '已有账号登录',
+      features: ['多 Agent 协作', '知识库问答', '任务持续推进', '文档自动整理', '成员权限管理'],
+      audiences: ['需要统一 AI 入口的管理团队', '有大量内部文档和流程的运营团队', '按项目交付结果的服务团队', '希望沉淀经验的新业务团队'],
+      capabilities: [
+        { title: '团队知识入口', description: '把制度、方案、客户资料和历史对话沉淀到同一个 App，成员用自然语言即可检索和追问。' },
+        { title: '任务推进面板', description: '从对话中拆出待办、负责人和截止时间，让 AI 持续跟进交付状态。' },
+        { title: '多角色协作', description: '为研究、运营、客服、项目管理配置不同 Agent，减少反复切换工具。' },
+        { title: '可追溯工作记录', description: '每次讨论、文件和结论都保留在频道里，便于复盘和新人接手。' },
+      ],
+      workflow: [
+        { title: '注册进入专属工作台', description: '成员从分享链接注册后自动进入当前 App，不需要重新寻找入口。' },
+        { title: '选择频道和 Agent', description: '按项目、客户或主题建立频道，让合适的 Agent 参与协作。' },
+        { title: '沉淀结果并继续推进', description: '把输出转成任务、资料和长期记忆，下次进入可以接着工作。' },
+      ],
+      metrics: [
+        { value: '3 分钟', label: '搭建团队 AI 入口' },
+        { value: '24/7', label: '持续响应成员问题' },
+        { value: '1 个链接', label: '完成分享、注册和归因' },
+      ],
+      closingTitle: '让每个团队都有自己的 AI 协作入口',
+      closingSubtitle: '公开主页负责介绍价值和承接注册，登录后的 App 负责知识、任务和成员协作。',
+    },
+  },
+  education: {
+    label: '教育培训',
+    accent: '#d9a441',
+    surface: '#fff8e1',
+    chip: '#181d26',
+    defaults: {
+      eyebrow: '学习空间',
+      title: '让每个学员进入自己的 AI 学习主页',
+      subtitle: '公开页承接课程介绍、注册入口和学习目标，登录后进入专属辅导与任务跟踪。',
+      primary: '加入学习',
+      secondary: '学员登录',
+      features: ['学习诊断', '测验复习', '成长报告', '课程资料问答', '作业跟进'],
+      audiences: ['课程训练营和陪跑社群', '职业考试和证书培训', '一对一导师服务', '企业内训和知识转化项目'],
+      capabilities: [
+        { title: '入学诊断', description: '通过问答快速了解学员基础、目标和薄弱点，为后续学习路径提供依据。' },
+        { title: '课程资料问答', description: '把课件、讲义和案例放进知识库，学员随时追问重点和细节。' },
+        { title: '复习测验', description: '围绕章节生成题目、错题解析和复习建议，让学习从听课延伸到练习。' },
+        { title: '成长记录', description: '持续记录学员问题、任务和反馈，老师可以看到真实学习进度。' },
+      ],
+      workflow: [
+        { title: '了解课程价值', description: '公开主页说明课程适合谁、能解决什么问题，以及进入后的学习方式。' },
+        { title: '注册进入学习空间', description: '学员注册后自动进入对应 App，保留来源 App 和分享信息。' },
+        { title: '诊断、学习、复盘', description: '从诊断开始，围绕资料问答、任务练习和阶段报告形成闭环。' },
+      ],
+      metrics: [
+        { value: '5 类', label: '学习内容自动组织' },
+        { value: '随时', label: '课后追问和复习' },
+        { value: '闭环', label: '诊断到报告持续跟踪' },
+      ],
+      closingTitle: '把课程介绍页升级成学习入口',
+      closingSubtitle: '让公开访问、注册归因、课程问答和学习跟进在同一个 App 中完成。',
+    },
+  },
+  consulting: {
+    label: '专业咨询',
+    accent: '#0a2e0e',
+    surface: '#f4faf4',
+    chip: '#a8d8c4',
+    defaults: {
+      eyebrow: '专家服务',
+      title: '把专业服务交付成可持续跟进的 AI 空间',
+      subtitle: '客户从公开页了解服务范围，注册后进入安全的咨询、资料和任务协同环境。',
+      primary: '开始咨询',
+      secondary: '客户登录',
+      features: ['资料收集', '过程记录', '交付跟进', '风险提示', '方案沉淀'],
+      audiences: ['顾问和研究团队', '医疗、法律、财税等专业服务', '需要持续交付的客户成功团队', '高客单价咨询项目'],
+      capabilities: [
+        { title: '结构化资料收集', description: '把客户背景、附件、问题和目标集中到频道，减少来回补信息。' },
+        { title: '专业过程记录', description: '咨询判断、依据、补充问题和交付结论保留在上下文中，便于审阅。' },
+        { title: '交付任务跟踪', description: '把下一步动作、负责人和时间点形成任务，降低服务中断风险。' },
+        { title: '方案资产沉淀', description: '把重复出现的问题、案例和交付模板沉淀成团队知识资产。' },
+      ],
+      workflow: [
+        { title: '客户了解服务范围', description: '公开主页说明适用场景、服务边界和进入后的协作方式。' },
+        { title: '注册并提交背景', description: '客户进入 App 后补充资料，团队能看到来源 App 和访客会话。' },
+        { title: '持续咨询与交付', description: '围绕频道完成追问、文件、结论和下一步任务管理。' },
+      ],
+      metrics: [
+        { value: '清晰', label: '服务边界和进入路径' },
+        { value: '可追溯', label: '每次判断和交付记录' },
+        { value: '持续', label: '后续任务不丢失' },
+      ],
+      closingTitle: '让专业服务从一次沟通变成持续交付',
+      closingSubtitle: '用公开主页承接客户，用 App 管理资料、过程和后续行动。',
+    },
+  },
+  community: {
+    label: '社群知识',
+    accent: '#1a3866',
+    surface: '#f3f8ff',
+    chip: '#a8d8c4',
+    defaults: {
+      eyebrow: '会员社区',
+      title: '为成员提供一个持续更新的知识入口',
+      subtitle: '把内容、问答、任务和成员协作集中到 App，公开页负责承接新成员注册。',
+      primary: '加入社区',
+      secondary: '会员登录',
+      features: ['知识沉淀', '成员协作', '长期陪伴', '活动通知', '内容导航'],
+      audiences: ['会员社群和付费社区', '内容创作者的粉丝知识库', '行业学习小组', '品牌客户社区'],
+      capabilities: [
+        { title: '内容导航', description: '把文章、课程、直播回放和资料组织成可问答的知识入口。' },
+        { title: '成员问答', description: '新成员可以先问 AI，管理员再处理高价值问题，减少重复答疑。' },
+        { title: '社群任务', description: '把打卡、活动、共创和长期项目变成可跟进任务。' },
+        { title: '社区资产沉淀', description: '高频问题、优质回答和案例持续沉淀，形成越用越强的社区记忆。' },
+      ],
+      workflow: [
+        { title: '公开页介绍社群价值', description: '让新成员知道能获得什么内容、服务和陪伴。' },
+        { title: '注册进入会员空间', description: '从 App 链接注册后直接进入社区，归因到具体 App 和分享来源。' },
+        { title: '问答、参与、沉淀', description: '成员围绕内容提问、参与任务，社区持续积累知识。' },
+      ],
+      metrics: [
+        { value: '长期', label: '内容和问答持续沉淀' },
+        { value: '低重复', label: '减少管理员重复答疑' },
+        { value: '可运营', label: '活动和任务统一跟进' },
+      ],
+      closingTitle: '让社群拥有一个能持续增长的知识主页',
+      closingSubtitle: '公开页负责介绍和转化，App 内负责问答、活动和成员关系。',
+    },
+  },
+  creative: {
+    label: '内容创作',
+    accent: '#aa2d00',
+    surface: '#fff4ed',
+    chip: '#f4d35e',
+    defaults: {
+      eyebrow: '创作工作流',
+      title: '从灵感到交付，建立你的 AI 创作空间',
+      subtitle: '公开页展示创作服务与案例，注册后进入素材、任务和生成流程的统一界面。',
+      primary: '开始创作',
+      secondary: '团队登录',
+      features: ['选题策划', '素材管理', '内容生成', '审稿协作', '发布复盘'],
+      audiences: ['自媒体和内容团队', '营销活动和品牌团队', '设计、视频、文案工作室', '需要稳定输出的创作者'],
+      capabilities: [
+        { title: '选题策划', description: '从热点、用户问题和品牌目标出发，组织选题池与内容方向。' },
+        { title: '素材管理', description: '把案例、图片、访谈、竞品和历史稿件沉淀为可检索素材库。' },
+        { title: '生成与改写', description: '围绕不同平台和语气生成初稿、标题、脚本和分发文案。' },
+        { title: '审稿复盘', description: '把修改意见、发布结果和复盘结论留在频道，形成团队风格记忆。' },
+      ],
+      workflow: [
+        { title: '展示创作服务或项目', description: '公开主页说明服务内容、协作方式和进入后的工作流。' },
+        { title: '注册进入创作空间', description: '客户或团队成员从链接进入后，围绕项目开始协作。' },
+        { title: '策划、生产、复盘', description: '从选题到发布后的反馈都在同一个 App 中持续沉淀。' },
+      ],
+      metrics: [
+        { value: '一站式', label: '选题到复盘完整链路' },
+        { value: '多平台', label: '适配图文、视频和营销物料' },
+        { value: '可复用', label: '素材和风格持续沉淀' },
+      ],
+      closingTitle: '把创意协作变成稳定输出的工作流',
+      closingSubtitle: '公开主页承接需求，App 内完成素材、任务、生成和审稿协作。',
+    },
+  },
+}
+
+function cleanPublicHomeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function publicHomeTemplateID(value: unknown): PublicHomeTemplateID {
+  return value === 'education' || value === 'consulting' || value === 'community' || value === 'creative' || value === 'ai_workspace'
+    ? value
+    : 'ai_workspace'
+}
+
+function cleanPublicHomeFeatures(value: PublicHomeConfig['features'], fallback: string[]) {
+  const features = Array.isArray(value)
+    ? value.map((item) => cleanPublicHomeText(item)).filter(Boolean).slice(0, 5)
+    : []
+  return features.length > 0 ? features : fallback
+}
+
+function cleanPublicHomeList(value: PublicHomeConfig['audiences'], fallback: string[], maxItems: number) {
+  const items = Array.isArray(value)
+    ? value.map((item) => cleanPublicHomeText(item)).filter(Boolean).slice(0, maxItems)
+    : []
+  return items.length > 0 ? items : fallback
+}
+
+function cleanPublicHomeBlocks(value: PublicHomeConfig['capabilities'], fallback: PublicHomeTextBlock[], maxItems: number) {
+  const items = Array.isArray(value)
+    ? value.map((item) => ({
+      title: cleanPublicHomeText(item?.title),
+      description: cleanPublicHomeText(item?.description),
+    })).filter((item) => item.title).slice(0, maxItems)
+    : []
+  return items.length > 0 ? items : fallback
+}
+
+function cleanPublicHomeMetrics(value: PublicHomeConfig['metrics'], fallback: PublicHomeMetric[]) {
+  const items = Array.isArray(value)
+    ? value.map((item) => ({
+      value: cleanPublicHomeText(item?.value),
+      label: cleanPublicHomeText(item?.label),
+    })).filter((item) => item.value && item.label).slice(0, 4)
+    : []
+  return items.length > 0 ? items : fallback
+}
+
+function resolvePublicHome(appConfig: AppRuntimeConfig, appTitle: string, appDescription: string): ResolvedPublicHome {
+  const config = appConfig.public_home
+  const template = PUBLIC_HOME_TEMPLATES[publicHomeTemplateID(config?.template)]
+  if (config?.enabled === false) {
+    return {
+      template,
+      eyebrow: 'Hive 安全入口',
+      title: appTitle,
+      subtitle: appDescription,
+      primary: '注册并进入',
+      secondary: '已有账号登录',
+      features: template.defaults.features,
+      audiences: template.defaults.audiences,
+      capabilities: template.defaults.capabilities,
+      workflow: template.defaults.workflow,
+      metrics: template.defaults.metrics,
+      closingTitle: template.defaults.closingTitle,
+      closingSubtitle: template.defaults.closingSubtitle,
+      coverImage: undefined,
+    }
+  }
+  return {
+    template,
+    eyebrow: cleanPublicHomeText(config?.eyebrow) || template.defaults.eyebrow,
+    title: cleanPublicHomeText(config?.title) || appTitle || template.defaults.title,
+    subtitle: cleanPublicHomeText(config?.subtitle) || appDescription || template.defaults.subtitle,
+    primary: cleanPublicHomeText(config?.primary_cta) || template.defaults.primary,
+    secondary: cleanPublicHomeText(config?.secondary_cta) || template.defaults.secondary,
+    features: cleanPublicHomeFeatures(config?.features, template.defaults.features),
+    audiences: cleanPublicHomeList(config?.audiences, template.defaults.audiences, 8),
+    capabilities: cleanPublicHomeBlocks(config?.capabilities, template.defaults.capabilities, 6),
+    workflow: cleanPublicHomeBlocks(config?.workflow, template.defaults.workflow, 5),
+    metrics: cleanPublicHomeMetrics(config?.metrics, template.defaults.metrics),
+    closingTitle: cleanPublicHomeText(config?.closing_title) || template.defaults.closingTitle,
+    closingSubtitle: cleanPublicHomeText(config?.closing_subtitle) || template.defaults.closingSubtitle,
+    coverImage: cleanPublicHomeText(config?.cover_image_url) || undefined,
+  }
+}
+
 interface RuntimeErrorBoundaryState {
   error: Error | null
 }
@@ -942,6 +1252,21 @@ function readInviteCodeFromLocation(): string {
   return ''
 }
 
+function readShareTokenFromLocation(): string {
+  const url = new URL(window.location.href)
+  for (const key of SHARE_TOKEN_KEYS) {
+    const value = url.searchParams.get(key)?.trim()
+    if (value) return value
+  }
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  for (const key of SHARE_TOKEN_KEYS) {
+    const value = hashParams.get(key)?.trim()
+    if (value) return value
+  }
+  return ''
+}
+
 function appReturnToWithoutInviteCode(): string {
   const url = new URL(window.location.href)
   for (const key of INVITE_CODE_KEYS) url.searchParams.delete(key)
@@ -984,7 +1309,94 @@ function buildHiveAppLaunchURL(appConfig: AppRuntimeConfig): string | null {
   url.searchParams.set('return_to', appReturnToWithoutInviteCode())
   const inviteCode = readInviteCodeFromLocation()
   if (inviteCode) url.searchParams.set('invite_code', inviteCode)
+  const shareToken = readShareTokenFromLocation()
+  if (shareToken) url.searchParams.set('share_id', shareToken)
+  const visitorSessionID = appVisitorSessionID()
+  if (visitorSessionID) url.searchParams.set('visitor_session_id', visitorSessionID)
   return url.toString()
+}
+
+function buildHiveAuthURL(appConfig: AppRuntimeConfig, mode: 'login' | 'register'): string | null {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain) return null
+  const launchURL = new URL('/app-launch', platformURL)
+  launchURL.searchParams.set('subdomain', subdomain)
+  launchURL.searchParams.set('return_to', appReturnToWithoutInviteCode())
+  const inviteCode = readInviteCodeFromLocation()
+  if (inviteCode) launchURL.searchParams.set('invite_code', inviteCode)
+  const shareToken = readShareTokenFromLocation()
+  if (shareToken) launchURL.searchParams.set('share_id', shareToken)
+  const visitorSessionID = appVisitorSessionID()
+  if (visitorSessionID) launchURL.searchParams.set('visitor_session_id', visitorSessionID)
+
+  const authURL = new URL(mode === 'register' ? '/register' : '/login', platformURL)
+  authURL.searchParams.set('return_to', `${launchURL.pathname}${launchURL.search}${launchURL.hash}`)
+  authURL.searchParams.set('app_subdomain', subdomain)
+  if (shareToken) authURL.searchParams.set('share_id', shareToken)
+  if (visitorSessionID) authURL.searchParams.set('visitor_session_id', visitorSessionID)
+  return authURL.toString()
+}
+
+function appVisitorSessionID(): string {
+  try {
+    const existing = window.localStorage.getItem(APP_VISITOR_SESSION_KEY)
+    if (existing) return existing
+    const next = typeof window.crypto?.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `visitor-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    window.localStorage.setItem(APP_VISITOR_SESSION_KEY, next)
+    return next
+  } catch {
+    return ''
+  }
+}
+
+async function fetchAppPublicContext(appConfig: AppRuntimeConfig): Promise<AppPublicContext | null> {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain) return null
+  try {
+    const url = new URL('/api/apps/context', platformURL)
+    url.searchParams.set('subdomain', subdomain)
+    url.searchParams.set('return_to', appReturnToWithoutInviteCode())
+    const shareToken = readShareTokenFromLocation()
+    if (shareToken) url.searchParams.set('share_id', shareToken)
+    const response = await fetch(url.toString(), { cache: 'no-store' })
+    if (!response.ok) return null
+    return await response.json() as AppPublicContext
+  } catch {
+    return null
+  }
+}
+
+function recordAppAcquisitionEvent(appConfig: AppRuntimeConfig, eventType: 'view_home' | 'click_login' | 'click_register') {
+  const platformURL = platformExternalURL(appConfig)
+  const subdomain = appLaunchSubdomain(appConfig)
+  if (!platformURL || !subdomain) return
+  const url = new URL('/api/apps/acquisition-events', platformURL)
+  const payload = JSON.stringify({
+    subdomain,
+    event_type: eventType,
+    share_id: readShareTokenFromLocation() || undefined,
+    visitor_session_id: appVisitorSessionID() || undefined,
+    landing_url: window.location.href,
+    return_to: appReturnToWithoutInviteCode(),
+  })
+  try {
+    if (typeof navigator.sendBeacon === 'function') {
+      const blob = new Blob([payload], { type: 'text/plain' })
+      if (navigator.sendBeacon(url.toString(), blob)) return
+    }
+  } catch {
+    // Fall back to fetch below.
+  }
+  void fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: payload,
+    keepalive: true,
+  }).catch(() => {})
 }
 
 function buildHiveLogoutURL(appConfig: AppRuntimeConfig): string | null {
@@ -1003,45 +1415,243 @@ function beginHiveLogout(appConfig: AppRuntimeConfig) {
 }
 
 function AuthScreen() {
-  const { appConfig } = useAppConfig()
+  const { appConfig, branding } = useAppConfig()
   const [signedOut, setSignedOut] = useState(() => isAppSignedOut())
-  const launchURL = useMemo(() => signedOut ? null : buildHiveAppLaunchURL(appConfig), [appConfig, signedOut])
+  const [publicContext, setPublicContext] = useState<AppPublicContext | null>(null)
+  const [logoFailed, setLogoFailed] = useState(false)
+  const viewRecordedRef = useRef(false)
+  const loginURL = useMemo(() => buildHiveAuthURL(appConfig, 'login'), [appConfig])
+  const registerURL = useMemo(() => buildHiveAuthURL(appConfig, 'register'), [appConfig])
+  const launchURL = useMemo(() => buildHiveAppLaunchURL(appConfig), [appConfig])
+  const canRegister = publicContext?.registration_enabled !== false
+  const hasLogo = Boolean(branding.logo && !logoFailed)
+  const appTitle = publicContext?.name || branding.title
+  const appDescription = publicContext?.description || branding.description
+  const orgName = publicContext?.org_name || 'Hive'
+  const publicHome = useMemo(
+    () => resolvePublicHome(appConfig, appTitle, appDescription),
+    [appConfig, appTitle, appDescription],
+  )
 
   useEffect(() => {
-    if (launchURL) window.location.replace(launchURL)
-  }, [launchURL])
+    let active = true
+    void fetchAppPublicContext(appConfig).then((context) => {
+      if (active) setPublicContext(context)
+    })
+    return () => { active = false }
+  }, [appConfig])
 
-  function handleSignInAgain() {
+  useEffect(() => {
+    if (viewRecordedRef.current) return
+    viewRecordedRef.current = true
+    recordAppAcquisitionEvent(appConfig, 'view_home')
+  }, [appConfig])
+
+  function goToAuth(mode: 'login' | 'register') {
     setAppSignedOut(false)
     setSignedOut(false)
-    const nextURL = buildHiveAppLaunchURL(appConfig)
-    if (nextURL) window.location.replace(nextURL)
+    recordAppAcquisitionEvent(appConfig, mode === 'register' ? 'click_register' : 'click_login')
+    const nextURL = mode === 'register' ? registerURL : loginURL
+    if (nextURL) window.location.assign(nextURL)
   }
 
-  if (signedOut) {
+  if (!loginURL && !registerURL && !launchURL) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#fafafa] px-4 py-[max(1rem,env(safe-area-inset-top))]">
         <div className="w-full max-w-sm rounded-lg border border-[#dddddd] bg-white p-6 text-center shadow-sm">
-          <p className="text-base font-medium text-[#181d26]">已退出登录</p>
+          <p className="text-base font-medium text-[#181d26]">应用入口暂不可用</p>
           <p className="mt-2 text-sm leading-6 text-[#41454d]">
-            当前应用会话和 Hive 登录态已清理。重新登录后可以继续进入应用。
+            当前应用缺少 Hive 入口配置，请稍后再试。
           </p>
-          <Button className="mt-5 w-full" onClick={handleSignInAgain}>
-            重新登录
-          </Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[#fafafa] px-4 py-[max(1rem,env(safe-area-inset-top))]">
-      <div className="w-full max-w-sm rounded-lg border border-[#dddddd] bg-white p-6 text-center shadow-sm">
-        <p className="text-base font-medium text-[#181d26]">正在进入应用</p>
-        <p className="mt-2 text-sm leading-6 text-[#41454d]">
-          {launchURL ? '请稍候，正在前往 Hive 完成身份校验。' : '当前应用缺少 Hive 入口配置，暂时无法进入。'}
-        </p>
-      </div>
+    <div className="min-h-[100dvh] bg-white text-[#181d26]">
+      <header className="flex h-16 items-center justify-between border-b border-[#dddddd] px-5 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          {hasLogo ? (
+            <img
+              src={branding.logo}
+              alt={appTitle}
+              className="h-9 w-9 rounded-md border border-[#dddddd] object-cover"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#181d26] text-sm font-medium text-white">
+              {Array.from(appTitle)[0] || 'H'}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{appTitle}</div>
+            <div className="truncate text-xs text-[#41454d]">{orgName}</div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="outline" className="h-9 rounded-md px-4 text-sm" onClick={() => goToAuth('login')}>
+            登录
+          </Button>
+          {canRegister && (
+            <Button className="h-9 rounded-md px-4 text-sm" onClick={() => goToAuth('register')}>
+              注册
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <main>
+        <section className="mx-auto grid min-h-[calc(100dvh-4rem)] w-full max-w-6xl grid-cols-1 gap-8 px-5 py-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-center lg:py-16">
+          <div className="max-w-2xl">
+            {signedOut && (
+              <p className="mb-4 inline-flex rounded-md border border-[#dddddd] px-3 py-1 text-xs text-[#41454d]">
+                已退出登录
+              </p>
+            )}
+            <p className="text-sm font-medium text-[#41454d]">{publicHome.eyebrow}</p>
+            <h1 className="mt-4 text-[2.5rem] font-normal leading-[1.08] tracking-normal sm:text-5xl">
+              {publicHome.title}
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-[#333840] sm:text-lg">
+              {publicHome.subtitle}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {publicHome.features.map((feature) => (
+                <span key={feature} className="rounded-md border border-[#dddddd] bg-white px-3 py-1.5 text-sm text-[#333840]">
+                  {feature}
+                </span>
+              ))}
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {canRegister && (
+                <Button className="h-12 rounded-md px-6 text-base" onClick={() => goToAuth('register')}>
+                  {publicHome.primary}
+                </Button>
+              )}
+              <Button variant="outline" className="h-12 rounded-md px-6 text-base" onClick={() => goToAuth('login')}>
+                {publicHome.secondary}
+              </Button>
+            </div>
+          </div>
+
+          <aside className="overflow-hidden rounded-lg border border-[#dddddd]" style={{ backgroundColor: publicHome.template.surface }}>
+            {publicHome.coverImage ? (
+              <img src={publicHome.coverImage} alt="" className="h-64 w-full object-cover" />
+            ) : (
+              <div className="p-5">
+                <div className="rounded-md p-5 text-white" style={{ backgroundColor: publicHome.template.accent }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{publicHome.template.label}</span>
+                    <span className="rounded-full bg-white/12 px-2 py-1 text-xs">Hive</span>
+                  </div>
+                  <div className="mt-10 rounded-md bg-white p-4 text-[#181d26]">
+                    <div className="text-xs text-[#41454d]">{publicHome.features[0] || '对话空间'}</div>
+                    <div className="mt-3 h-2 w-3/4 rounded-full" style={{ backgroundColor: publicHome.template.accent }} />
+                    <div className="mt-2 h-2 w-1/2 rounded-full bg-[#dddddd]" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {(publicHome.features.slice(1, 3).length > 0 ? publicHome.features.slice(1, 3) : ['知识', '任务']).map((feature) => (
+                      <div key={feature} className="rounded-md p-3 text-[#181d26]" style={{ backgroundColor: publicHome.template.chip }}>
+                        <div className="text-xs">{feature}</div>
+                        <div className="mt-5 h-2 rounded-full bg-[#181d26]" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="border-t border-[#dddddd] bg-white px-5 py-4">
+              <div className="text-sm font-medium text-[#181d26]">{publicHome.title}</div>
+              <div className="mt-1 text-xs leading-5 text-[#41454d]">{orgName}</div>
+            </div>
+          </aside>
+        </section>
+
+        <section className="border-y border-[#dddddd] bg-[#fafafa]">
+          <div className="mx-auto grid max-w-6xl gap-px px-5 sm:grid-cols-3 sm:px-8">
+            {publicHome.metrics.map((metric) => (
+              <div key={`${metric.value}-${metric.label}`} className="bg-[#fafafa] py-6 sm:px-6">
+                <div className="text-3xl font-normal leading-tight text-[#181d26]">{metric.value}</div>
+                <div className="mt-2 text-sm leading-5 text-[#41454d]">{metric.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto grid max-w-6xl gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[18rem_minmax(0,1fr)] lg:py-20">
+          <div>
+            <p className="text-sm font-medium text-[#41454d]">适合谁</p>
+            <h2 className="mt-3 text-3xl font-normal leading-tight text-[#181d26]">让访问者更快判断这个 App 是否适合自己</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {publicHome.audiences.map((audience) => (
+              <div key={audience} className="rounded-lg border border-[#dddddd] bg-white p-4 text-sm leading-6 text-[#333840]">
+                {audience}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-[#f8fafc]">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 lg:py-20">
+            <div className="max-w-2xl">
+              <p className="text-sm font-medium text-[#41454d]">能做什么</p>
+              <h2 className="mt-3 text-3xl font-normal leading-tight text-[#181d26]">把注册后的核心价值提前讲清楚</h2>
+            </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-2">
+              {publicHome.capabilities.map((item) => (
+                <div key={item.title} className="rounded-lg border border-[#dddddd] bg-white p-5">
+                  <h3 className="text-lg font-medium leading-6 text-[#181d26]">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#41454d]">{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-5 py-14 sm:px-8 lg:py-20">
+          <div className="grid gap-10 lg:grid-cols-[18rem_minmax(0,1fr)]">
+            <div>
+              <p className="text-sm font-medium text-[#41454d]">如何开始</p>
+              <h2 className="mt-3 text-3xl font-normal leading-tight text-[#181d26]">从公开链接到 App 内协作的完整路径</h2>
+            </div>
+            <div className="space-y-3">
+              {publicHome.workflow.map((item, index) => (
+                <div key={item.title} className="grid gap-4 rounded-lg border border-[#dddddd] bg-white p-4 sm:grid-cols-[3rem_minmax(0,1fr)]">
+                  <div className="flex size-10 items-center justify-center rounded-md text-sm font-medium text-white" style={{ backgroundColor: publicHome.template.accent }}>
+                    {index + 1}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-medium text-[#181d26]">{item.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#41454d]">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-[#dddddd] bg-[#181d26] px-5 py-14 text-white sm:px-8 lg:py-20">
+          <div className="mx-auto flex max-w-6xl flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm text-white/70">{orgName}</p>
+              <h2 className="mt-3 text-3xl font-normal leading-tight">{publicHome.closingTitle}</h2>
+              <p className="mt-4 text-base leading-7 text-white/75">{publicHome.closingSubtitle}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {canRegister && (
+                <Button className="h-12 rounded-md bg-white px-6 text-base text-[#181d26] hover:bg-[#f5f5f5]" onClick={() => goToAuth('register')}>
+                  {publicHome.primary}
+                </Button>
+              )}
+              <Button variant="outline" className="h-12 rounded-md border-white/30 bg-transparent px-6 text-base text-white hover:bg-white/10" onClick={() => goToAuth('login')}>
+                {publicHome.secondary}
+              </Button>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }
@@ -1712,6 +2322,14 @@ function StoragePreviewErrorLocalizer() {
   return null
 }
 
+function RuntimeLoading() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#fafafa] text-sm text-muted-foreground">
+      加载中...
+    </div>
+  )
+}
+
 function StorageDeliveryBridge() {
   useStorageWriteDeliverySync()
   useStorageReferenceMetadataSync()
@@ -2037,35 +2655,39 @@ export function App() {
     return () => window.removeEventListener('beeseed:app-config-updated', handleConfigUpdate)
   }, [])
 
-  if (showAgentLoopFixture) return <AgentLoopFixturePage />
-
-  if (!runtimeConfig) {
+  if (showAgentLoopFixture) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#fafafa] text-sm text-muted-foreground">
-        加载中...
-      </div>
+      <Suspense fallback={<RuntimeLoading />}>
+        <AgentLoopFixturePage />
+      </Suspense>
     )
   }
 
+  if (!runtimeConfig) {
+    return <RuntimeLoading />
+  }
+
   return (
-    <RuntimeErrorBoundary>
-      <BeeSeedProvider config={{ workerUrl: '', appConfig: runtimeConfig, onSignOut: () => beginHiveLogout(runtimeConfig) }}>
-        <AuthGuard fallback={<AuthScreen />}>
-          <StorageToolResultNormalizer />
-          <RuntimeTaskStateNormalizer />
-          <TaskToolResultRefreshSync />
-          <TaskFailureRecoverySync />
-          <ChannelUnreadSync />
-          <ChannelSelectionPersistence />
-          <ConnectionFallback />
-          <StorageDeliveryBridge />
-          <KnowledgeStoreStabilizer />
-          <div className="relative h-[100dvh]">
-            <RuntimeAppLayout />
-            <WelcomeGuide />
-          </div>
-        </AuthGuard>
-      </BeeSeedProvider>
-    </RuntimeErrorBoundary>
+    <Suspense fallback={<RuntimeLoading />}>
+      <RuntimeErrorBoundary>
+        <BeeSeedProvider config={{ workerUrl: '', appConfig: runtimeConfig, onSignOut: () => beginHiveLogout(runtimeConfig) }}>
+          <AuthGuard fallback={<AuthScreen />}>
+            <StorageToolResultNormalizer />
+            <RuntimeTaskStateNormalizer />
+            <TaskToolResultRefreshSync />
+            <TaskFailureRecoverySync />
+            <ChannelUnreadSync />
+            <ChannelSelectionPersistence />
+            <ConnectionFallback />
+            <StorageDeliveryBridge />
+            <KnowledgeStoreStabilizer />
+            <div className="relative h-[100dvh]">
+              <RuntimeAppLayout />
+              <WelcomeGuide />
+            </div>
+          </AuthGuard>
+        </BeeSeedProvider>
+      </RuntimeErrorBoundary>
+    </Suspense>
   )
 }
