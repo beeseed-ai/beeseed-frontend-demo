@@ -48,6 +48,7 @@ if (typeof window !== 'undefined') {
 const TOKEN_STORAGE_KEY = 'beeseed_token'
 const LAUNCH_TOKEN_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const TOKEN_QUERY_RE = /([?#&](?:beeseed_launch_token|beeseed_token|token|auth_token|access_token)=)[^&#\s]*/gi
+const INVITE_CODE_KEYS = ['invite_code', 'invite']
 const LAST_CHANNEL_STORAGE_PREFIX = 'beeseed:last-channel:v1'
 const STORAGE_MISSING_TOOLS = new Set(['storage_read', 'storage_info'])
 const STORAGE_MISSING_ERROR_RE = /\bno rows in result set\b/i
@@ -869,13 +870,47 @@ function platformExternalURL(appConfig: AppRuntimeConfig): string | null {
   return `${protocol}//${parts.join('.')}`
 }
 
+function readInviteCodeFromLocation(): string {
+  const url = new URL(window.location.href)
+  for (const key of INVITE_CODE_KEYS) {
+    const value = url.searchParams.get(key)?.trim()
+    if (value) return value
+  }
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  for (const key of INVITE_CODE_KEYS) {
+    const value = hashParams.get(key)?.trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function appReturnToWithoutInviteCode(): string {
+  const url = new URL(window.location.href)
+  for (const key of INVITE_CODE_KEYS) url.searchParams.delete(key)
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  let changedHash = false
+  for (const key of INVITE_CODE_KEYS) {
+    if (hashParams.has(key)) changedHash = true
+    hashParams.delete(key)
+  }
+  if (changedHash) {
+    const nextHash = hashParams.toString()
+    url.hash = nextHash ? '#' + nextHash : ''
+  }
+  return url.toString()
+}
+
 function buildHiveAppLaunchURL(appConfig: AppRuntimeConfig): string | null {
   const platformURL = platformExternalURL(appConfig)
   const subdomain = appLaunchSubdomain(appConfig)
   if (!platformURL || !subdomain) return null
   const url = new URL('/app-launch', platformURL)
   url.searchParams.set('subdomain', subdomain)
-  url.searchParams.set('return_to', window.location.href)
+  url.searchParams.set('return_to', appReturnToWithoutInviteCode())
+  const inviteCode = readInviteCodeFromLocation()
+  if (inviteCode) url.searchParams.set('invite_code', inviteCode)
   return url.toString()
 }
 

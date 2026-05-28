@@ -50,6 +50,7 @@ if (typeof window !== 'undefined') {
 const TOKEN_STORAGE_KEY = 'beeseed_token'
 const LAUNCH_TOKEN_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const TOKEN_QUERY_RE = /([?#&](?:beeseed_launch_token|beeseed_token|token|auth_token|access_token)=)[^&#\s]*/gi
+const INVITE_CODE_KEYS = ['invite_code', 'invite']
 const LAST_CHANNEL_STORAGE_PREFIX = 'beeseed:last-channel:v1'
 const STORAGE_MISSING_TOOLS = new Set(['storage_read', 'storage_info'])
 const STORAGE_MISSING_ERROR_RE = /\bno rows in result set\b/i
@@ -1084,6 +1085,39 @@ function platformExternalURL(appConfig?: AppRuntimeConfig | null): string {
   return ''
 }
 
+function readInviteCodeFromLocation(): string {
+  if (typeof window === 'undefined') return ''
+  const url = new URL(window.location.href)
+  for (const key of INVITE_CODE_KEYS) {
+    const value = url.searchParams.get(key)?.trim()
+    if (value) return value
+  }
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  for (const key of INVITE_CODE_KEYS) {
+    const value = hashParams.get(key)?.trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function appReturnToWithoutInviteCode(): string {
+  const url = new URL(window.location.href)
+  for (const key of INVITE_CODE_KEYS) url.searchParams.delete(key)
+  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
+  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
+  let changedHash = false
+  for (const key of INVITE_CODE_KEYS) {
+    if (hashParams.has(key)) changedHash = true
+    hashParams.delete(key)
+  }
+  if (changedHash) {
+    const nextHash = hashParams.toString()
+    url.hash = nextHash ? '#' + nextHash : ''
+  }
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
 function buildHiveAppLaunchURL(appConfig?: AppRuntimeConfig | null): string {
   const platformURL = platformExternalURL(appConfig)
   const subdomain = appLaunchSubdomain(appConfig)
@@ -1091,7 +1125,9 @@ function buildHiveAppLaunchURL(appConfig?: AppRuntimeConfig | null): string {
 
   const launchURL = new URL('/app-launch', platformURL)
   launchURL.searchParams.set('subdomain', subdomain)
-  launchURL.searchParams.set('return_to', `${window.location.pathname}${window.location.search}${window.location.hash}`)
+  launchURL.searchParams.set('return_to', appReturnToWithoutInviteCode())
+  const inviteCode = readInviteCodeFromLocation()
+  if (inviteCode) launchURL.searchParams.set('invite_code', inviteCode)
   return launchURL.toString()
 }
 
