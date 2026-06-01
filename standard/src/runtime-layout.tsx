@@ -37,6 +37,7 @@ import {
 } from './runtime-recovery'
 import { resolveAgentSkillSummaries } from './agent-skill-catalog'
 import { RuntimeAgentRunTranscript, RuntimeThinkingBlock } from './runtime-agent-run-transcript'
+import { LocalAgentPanel } from './components/LocalAgentPanel'
 
 const CHAT_MAX_WIDTH = 820
 const CHAT_UPLOAD_PREFIX = '__chat_uploads/'
@@ -1804,18 +1805,23 @@ export function RuntimeAppLayout({ className }: { className?: string }) {
           aria-label="关闭详情面板"
         />
       )}
-      {activeFeature === 'chat' && (
-        <DetailPanel
+      {activeFeature === 'chat' && panelVisible && currentChannelId && (
+        <div
           className={cn(
-            mobileDetailOpen ? 'fixed inset-y-0 right-0 z-40 flex w-[min(22rem,calc(100vw-2rem))] max-w-[22rem] shadow-xl' : 'hidden',
-            'lg:static lg:z-auto lg:flex lg:w-[300px] lg:max-w-none lg:shadow-none',
+            mobileDetailOpen ? 'fixed inset-y-0 right-0 z-40 flex w-[min(23rem,calc(100vw-2rem))] max-w-[23rem] shadow-xl' : 'hidden',
+            'overflow-hidden border-l border-border bg-background lg:static lg:z-auto lg:flex lg:w-[340px] lg:max-w-none lg:shadow-none',
           )}
-          channelId={currentChannelId}
-          members={members}
-          tasks={tasks}
-          onCreateTask={openTaskCreator}
-          onMembersChanged={refreshMembers}
-        />
+        >
+          <LocalAgentPanel channelId={currentChannelId} channelName={currentChannel?.name} />
+          <DetailPanel
+            className="min-h-0 w-full flex-1 shrink border-l-0"
+            channelId={currentChannelId}
+            members={members}
+            tasks={tasks}
+            onCreateTask={openTaskCreator}
+            onMembersChanged={refreshMembers}
+          />
+        </div>
       )}
       <StandardTemplateVersion />
     </div>

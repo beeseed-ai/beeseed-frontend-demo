@@ -52,6 +52,7 @@ export { DetailPanel } from '../../../../beeseed-sdk/src/components/layout/Detai
 export { SkillIcon, skillIconUrl } from '../../../../beeseed-sdk/src/components/skills/SkillIcon.js'
 
 export { Button, buttonVariants } from '../../../../beeseed-sdk/src/components/ui/button.js'
+export { Input } from '../../../../beeseed-sdk/src/components/ui/input.js'
 export { Avatar, AvatarFallback, AvatarImage } from '../../../../beeseed-sdk/src/components/ui/avatar.js'
 
 export { cn } from '../../../../beeseed-sdk/src/lib/cn.js'
