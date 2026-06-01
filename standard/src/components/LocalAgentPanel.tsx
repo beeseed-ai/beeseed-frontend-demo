@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, FileText, FolderOpen, Loader2, Monitor, Play, RefreshCw } from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronRight, FileText, FolderOpen, Loader2, Monitor, Play, RefreshCw } from 'lucide-react'
 import { Button, cn, Input, useBeeSeedContext } from '@beeseed/beeseed-sdk'
 
 interface LocalAgentCapabilityStatus {
@@ -77,6 +77,7 @@ interface CreateLocalAgentRunResponse {
 interface Props {
   channelId: string | null
   channelName?: string | null
+  className?: string
 }
 
 const DEFAULT_OUTPUT_PATH = 'outputs/local-agent-test.docx'
@@ -167,11 +168,12 @@ function errorMessage(error: unknown) {
   return '本地 Agent 请求失败'
 }
 
-export function LocalAgentPanel({ channelId, channelName }: Props) {
+export function LocalAgentPanel({ channelId, channelName, className }: Props) {
   const { api } = useBeeSeedContext()
   const [devices, setDevices] = useState<LocalAgentDevice[]>([])
   const [grants, setGrants] = useState<LocalAgentGrant[]>([])
   const [runs, setRuns] = useState<LocalAgentRun[]>([])
+  const [expanded, setExpanded] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
   const [selectedGrantId, setSelectedGrantId] = useState('')
   const [outputPath, setOutputPath] = useState(DEFAULT_OUTPUT_PATH)
@@ -235,6 +237,8 @@ export function LocalAgentPanel({ channelId, channelName }: Props) {
     () => [...runs].sort((a, b) => dateValue(b.updated_at || b.created_at) - dateValue(a.updated_at || a.created_at)).slice(0, 3),
     [runs],
   )
+  const onlineDeviceCount = useMemo(() => devices.filter(isDeviceOnline).length, [devices])
+  const writableGrantCount = useMemo(() => grants.filter(grantCanWrite).length, [grants])
 
   useEffect(() => {
     if (selectedGrantId && availableGrants.some((grant) => grant.grant_id === selectedGrantId)) return
@@ -304,34 +308,63 @@ export function LocalAgentPanel({ channelId, channelName }: Props) {
   }
 
   const canRun = Boolean(channelId && selectedDevice && selectedGrant && isDeviceOnline(selectedDevice) && deviceSupportsDocx(selectedDevice) && grantCanWrite(selectedGrant))
+  const selectedDeviceLabel = selectedDevice ? `${deviceDisplayName(selectedDevice)} · ${deviceStatusLabel(selectedDevice)}` : '暂无设备'
+  const selectedGrantLabel = selectedGrant
+    ? `${selectedGrant.display_name || selectedGrant.relative_path || selectedGrant.grant_id} · ${grantMode(selectedGrant)}`
+    : '暂无授权'
 
   return (
-    <section className="border-b border-border bg-white">
-      <div className="flex items-center gap-2 px-4 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+    <section className={cn('border-b border-border bg-white', className)}>
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9297a0]/35"
+          aria-expanded={expanded}
+        >
+          {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#777169]" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[#777169]" />}
           <Monitor className="h-4 w-4 shrink-0 text-[#41454d]" />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-[#181d26]">本地 Agent</div>
-            <div className="truncate text-[11px] text-[#6b7280]">{devices.length} 台设备 · {grants.length} 个授权</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium text-[#181d26]">本地 Agent</span>
+              {onlineDeviceCount > 0 && (
+                <span className="shrink-0 rounded-full border border-[#39bf45]/40 bg-[#f0fbf1] px-1.5 py-0.5 text-[10px] leading-none text-[#006400]">
+                  {onlineDeviceCount} 在线
+                </span>
+              )}
+            </div>
+            <div className="truncate text-[11px] text-[#6b7280]">
+              {devices.length} 台设备 · {grants.length} 个授权 · {writableGrantCount} 可写
+            </div>
           </div>
-        </div>
+        </button>
         <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={loading} title="刷新本地 Agent">
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
         </Button>
       </div>
 
-      <div className="space-y-3 px-4 pb-4">
-        {error && (
-          <div className="flex gap-2 rounded-md border border-[#aa2d00]/25 bg-[#fff4ef] px-3 py-2 text-xs leading-5 text-[#aa2d00]">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 break-words">{error}</span>
-          </div>
-        )}
-        {notice && (
-          <div className="rounded-md border border-[#39bf45]/35 bg-[#f0fbf1] px-3 py-2 text-xs leading-5 text-[#006400]">
-            {notice}
-          </div>
-        )}
+      {!expanded && (
+        <div className="space-y-1.5 px-4 pb-3 text-[11px] leading-4 text-[#6b7280]">
+          <div className="truncate">设备：{selectedDeviceLabel}</div>
+          <div className="truncate">授权：{selectedGrantLabel}</div>
+          {error && <div className="truncate text-[#aa2d00]">错误：{error}</div>}
+          {notice && <div className="truncate text-[#006400]">{notice}</div>}
+        </div>
+      )}
+
+      {expanded && (
+        <div className="max-h-[min(58dvh,36rem)] space-y-3 overflow-y-auto px-4 pb-4">
+          {error && (
+            <div className="flex gap-2 rounded-md border border-[#aa2d00]/25 bg-[#fff4ef] px-3 py-2 text-xs leading-5 text-[#aa2d00]">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 break-words">{error}</span>
+            </div>
+          )}
+          {notice && (
+            <div className="rounded-md border border-[#39bf45]/35 bg-[#f0fbf1] px-3 py-2 text-xs leading-5 text-[#006400]">
+              {notice}
+            </div>
+          )}
 
         <div className="space-y-1.5">
           <div className="text-[11px] font-medium text-[#41454d]">设备</div>
@@ -448,7 +481,8 @@ export function LocalAgentPanel({ channelId, channelName }: Props) {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </section>
   )
 }
