@@ -37,7 +37,6 @@ import {
 } from './runtime-recovery'
 import { resolveAgentSkillSummaries } from './agent-skill-catalog'
 import { RuntimeAgentRunTranscript, RuntimeThinkingBlock } from './runtime-agent-run-transcript'
-import { LocalAgentPanel } from './components/LocalAgentPanel'
 
 const CHAT_MAX_WIDTH = 820
 const CHAT_UPLOAD_PREFIX = '__chat_uploads/'
@@ -1809,20 +1808,17 @@ export function RuntimeAppLayout({ className }: { className?: string }) {
         <div
           className={cn(
             mobileDetailOpen ? 'fixed inset-y-0 right-0 z-40 flex w-[min(23rem,calc(100vw-2rem))] max-w-[23rem] shadow-xl' : 'hidden',
-            'beeseed-runtime-side-panel overflow-hidden border-l border-border bg-background lg:static lg:z-auto lg:flex lg:w-[340px] lg:max-w-none lg:shadow-none',
+            'overflow-hidden border-l border-border bg-background lg:static lg:z-auto lg:flex lg:w-[340px] lg:max-w-none lg:shadow-none',
           )}
         >
-          <LocalAgentPanel channelId={currentChannelId} channelName={currentChannel?.name} className="shrink-0" />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <DetailPanel
-              className="beeseed-runtime-detail-panel min-h-0 border-l-0"
-              channelId={currentChannelId}
-              members={members}
-              tasks={tasks}
-              onCreateTask={openTaskCreator}
-              onMembersChanged={refreshMembers}
-            />
-          </div>
+          <DetailPanel
+            className="min-h-0 w-full flex-1 border-l-0"
+            channelId={currentChannelId}
+            members={members}
+            tasks={tasks}
+            onCreateTask={openTaskCreator}
+            onMembersChanged={refreshMembers}
+          />
         </div>
       )}
       <StandardTemplateVersion />

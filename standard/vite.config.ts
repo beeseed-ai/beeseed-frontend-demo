@@ -77,8 +77,8 @@ function agentSkillsDialogOverlay(): Plugin {
           "import { CloudStoragePanel } from '@standard/cloud-storage-panel'",
         ],
         [
-          "import { useMemo, useState } from 'react'",
-          "import { useMemo, useState } from 'react'\nimport { resolveAgentSkillSummaries, type AgentSkillSummary } from '@standard/agent-skill-catalog'",
+          "import { useEffect, useMemo, useState } from 'react'",
+          "import { useEffect, useMemo, useState } from 'react'\nimport { resolveAgentSkillSummaries, type AgentSkillSummary } from '@standard/agent-skill-catalog'",
         ],
         [
           "  const [agentSettingsSaving, setAgentSettingsSaving] = useState(false)",
