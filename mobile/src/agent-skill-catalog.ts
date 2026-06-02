@@ -85,7 +85,7 @@ const SKILL_CATALOG: Record<string, Omit<AgentSkillSummary, 'name'>> = {
   pptx: {
     display_name: 'PPTX 演示文稿',
     description: '演示文稿处理技能，支持创建、读取、解析、编辑、更新、合并、拆分 PPTX 文件，并处理模板、版式、演讲者备注和评论。',
-    version: '1.0.0',
+    version: '1.3.0',
   },
   'volcengine-search': {
     display_name: '火山引擎事实核查搜索',
