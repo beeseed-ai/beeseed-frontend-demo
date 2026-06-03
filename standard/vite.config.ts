@@ -465,9 +465,11 @@ function hideKnowledgeNavOverlay(): Plugin {
       const from = `const BASE_NAV_ITEMS: NavItem[] = [
   { id: 'knowledge', label: '知识库', icon: BookOpen },
   { id: 'tasks', label: '任务', icon: ListChecks },
+  { id: 'workflows', label: '工作流', icon: GitBranch },
 ]`
       const to = `const BASE_NAV_ITEMS: NavItem[] = [
   { id: 'tasks', label: '任务', icon: ListChecks },
+  { id: 'workflows', label: '工作流', icon: GitBranch },
 ]`
 
       if (!code.includes(from)) {

@@ -80,6 +80,7 @@ interface AgentTemplateSyncResult {
   agent_id: string
   channels_matched: number
   channels_updated: number
+  model_settings_updated?: number
   skills_added: number
   tools_added: number
 }
@@ -209,6 +210,11 @@ function normalizeModelTierSettings(value: Partial<ModelTierSettings> | null | u
       pro: { ...fallback.tiers.pro, ...(value?.tiers?.pro ?? {}) },
     },
   }
+}
+
+function defaultModelTierConfig(settings: ModelTierSettings): ModelTierConfig {
+  const defaultTier = normalizeModelTier(settings.default_tier) || 'fast'
+  return settings.tiers[defaultTier] ?? settings.tiers.fast
 }
 
 function avatarPresetUrl(preset: string | undefined) {
@@ -426,9 +432,15 @@ export function AgentManageTab() {
         personality: identity.personality.trim(),
         content: identity.content,
       }
+      const nextModelTiers = normalizeModelTierSettings(agentConfig.model_tiers, agentConfig.provider, agentConfig.model)
+      const defaultModel = defaultModelTierConfig(nextModelTiers)
       const configPayload = {
         ...agentConfig,
+        provider: defaultModel.provider,
+        model: defaultModel.model,
+        thinking: defaultModel.thinking,
         model_tier: '',
+        model_tiers: nextModelTiers,
         role: selectedId,
         identity: {
           ...((agentConfig.identity as Record<string, unknown> | undefined) ?? {}),
@@ -701,7 +713,7 @@ export function AgentManageTab() {
                     )}
                     {syncResult && (
                       <div className="rounded-lg border border-[#39bf45]/40 bg-[#39bf45]/10 px-3 py-2 text-sm text-[#006400]">
-                        已检查 {syncResult.channels_matched} 个频道，更新 {syncResult.channels_updated} 个频道，新增 {syncResult.skills_added} 个技能引用、{syncResult.tools_added} 个工具引用。
+                        已检查 {syncResult.channels_matched} 个频道，更新 {syncResult.channels_updated} 个频道，刷新 {syncResult.model_settings_updated ?? 0} 个频道模型设置，新增 {syncResult.skills_added} 个技能引用、{syncResult.tools_added} 个工具引用。
                       </div>
                     )}
 

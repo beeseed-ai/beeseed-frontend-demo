@@ -867,6 +867,7 @@ function MessageList({
   currentUserId,
   onSubmitAnswer,
   onStopAgent,
+  onOpenWorkflowRun,
   welcomeTitle,
   welcomeFallbackTitle,
   welcomeMessage,
@@ -883,6 +884,7 @@ function MessageList({
   currentUserId?: string
   onSubmitAnswer?: (askId: string, answers: Record<string, unknown>) => void
   onStopAgent?: (agentId: string, reason?: string, runId?: string) => void
+  onOpenWorkflowRun?: (runId: string) => void
   welcomeTitle?: string
   welcomeFallbackTitle?: string
   welcomeMessage?: string
@@ -1017,6 +1019,7 @@ function MessageList({
                   onQuote={onQuote}
                   onScrollToMessage={handleScrollToMessage}
                   onSubmitAnswer={onSubmitAnswer}
+                  onOpenWorkflowRun={onOpenWorkflowRun}
                 />
               )
             })}
@@ -1494,7 +1497,7 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   const { branding } = useAppConfig()
   const { channels } = useChannels()
   const { messages, streams, agentLoops, members, typings, send, sendWithQuote, submitAnswer, stopAgent, loading } = useChat(channelId)
-  const { composerInsertText, consumeComposerInsert } = useDetailPanel()
+  const { composerInsertText, consumeComposerInsert, openWorkflowRun } = useDetailPanel()
   const [quotedMessage, setQuotedMessage] = useState<ChatMessage | null>(null)
   const skillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
   const channelSettings = useMemo(
@@ -1543,6 +1546,7 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
               currentUserId={user?.id}
               onSubmitAnswer={submitAnswer}
               onStopAgent={stopAgent}
+              onOpenWorkflowRun={openWorkflowRun}
               welcomeTitle={welcomeTitle}
               welcomeFallbackTitle={branding.title}
               welcomeMessage={welcomeMessage}
