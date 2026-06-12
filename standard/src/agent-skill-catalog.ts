@@ -82,10 +82,10 @@ const SKILL_CATALOG: Record<string, Omit<AgentSkillSummary, 'name'>> = {
     description: 'PDF 文件处理技能，支持读取、提取文本和表格、合并、拆分、旋转、水印、创建、表单填写、加解密、图片提取和扫描件 OCR。',
     version: '1.0.0',
   },
-  pptx: {
-    display_name: 'PPTX 演示文稿',
-    description: '演示文稿处理技能，支持创建、读取、解析、编辑、更新、合并、拆分 PPTX 文件，并处理模板、版式、演讲者备注和评论。',
-    version: '1.3.0',
+  'ppt-master': {
+    display_name: 'PPT Master',
+    description: '高质量演示文稿制作技能。将 PDF、Markdown、文档或用户素材转成设计锁定、逐页 SVG 生成、质量检查后导出的 PPTX。',
+    version: '0.1.0',
   },
   'volcengine-search': {
     display_name: '火山引擎事实核查搜索',

@@ -76,6 +76,8 @@ const STORAGE_WRITE_ACTION_RE = /^(?:Wrote|Saved|Uploaded)\s+(.+?)(?:\s+\(\d+\s+
 const STORAGE_DELIVERY_TOOL_NAMES = new Set([
   'storage_write',
   'presentation_pptx_generate',
+  'presentation_source_import',
+  'presentation_svg_export',
   'web_deck_generate',
   'wechat_article_fetch_markdown',
 ])

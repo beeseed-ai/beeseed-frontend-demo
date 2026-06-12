@@ -149,7 +149,7 @@ const SKILL_LABELS: Record<string, string> = {
   'moxibustion-advisor': '辨证施灸顾问',
   'moxibustion-classics': '艾灸古籍知识库',
   pdf: 'PDF 处理助手',
-  pptx: 'PPTX 演示文稿',
+  'ppt-master': 'PPT Master',
   'volcengine-search': '火山引擎事实核查搜索',
   xlsx: 'Excel 表格助手',
   'yinyuan-skills': '月老·姻缘测算',

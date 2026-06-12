@@ -40,6 +40,12 @@ import {
   userFacingMessageContent,
 } from './runtime-recovery'
 import { installRuntimeStorageSafety } from './storage-safety'
+import {
+  APP_SIGNED_OUT_KEYS as SIGNED_OUT_KEYS,
+  appReturnToWithoutInviteCodeFromURL,
+  readInviteCodeFromURL,
+  readShareTokenFromURL,
+} from './appAuthRouting'
 
 const RuntimeAppLayout = lazy(() => import('./runtime-layout').then((module) => ({ default: module.RuntimeAppLayout })))
 const AgentLoopFixturePage = lazy(() => import('./agent-loop-fixture').then((module) => ({ default: module.AgentLoopFixturePage })))
@@ -50,9 +56,6 @@ if (typeof window !== 'undefined') {
 const TOKEN_STORAGE_KEY = 'beeseed_token'
 const LAUNCH_TOKEN_KEYS = ['beeseed_launch_token', 'beeseed_token', 'token', 'auth_token', 'access_token']
 const TOKEN_QUERY_RE = /([?#&](?:beeseed_launch_token|beeseed_token|token|auth_token|access_token)=)[^&#\s]*/gi
-const INVITE_CODE_KEYS = ['invite_code', 'invite']
-const SHARE_TOKEN_KEYS = ['share_id', 'share']
-const SIGNED_OUT_KEYS = ['signed_out']
 const APP_SIGNED_OUT_STORAGE_KEY = 'beeseed:app-signed-out:v1'
 const APP_VISITOR_SESSION_KEY = 'beeseed:app-visitor-session:v1'
 const LAST_CHANNEL_STORAGE_PREFIX = 'beeseed:last-channel:v1'
@@ -74,6 +77,8 @@ const STORAGE_WRITE_ACTION_RE = /^(?:Wrote|Saved|Uploaded)\s+(.+?)(?:\s+\(\d+\s+
 const STORAGE_DELIVERY_TOOL_NAMES = new Set([
   'storage_write',
   'presentation_pptx_generate',
+  'presentation_source_import',
+  'presentation_svg_export',
   'web_deck_generate',
   'wechat_article_fetch_markdown',
 ])
@@ -1238,60 +1243,15 @@ function platformExternalURL(appConfig: AppRuntimeConfig): string | null {
 }
 
 function readInviteCodeFromLocation(): string {
-  const url = new URL(window.location.href)
-  for (const key of INVITE_CODE_KEYS) {
-    const value = url.searchParams.get(key)?.trim()
-    if (value) return value
-  }
-  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
-  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
-  for (const key of INVITE_CODE_KEYS) {
-    const value = hashParams.get(key)?.trim()
-    if (value) return value
-  }
-  return ''
+  return readInviteCodeFromURL(window.location.href)
 }
 
 function readShareTokenFromLocation(): string {
-  const url = new URL(window.location.href)
-  for (const key of SHARE_TOKEN_KEYS) {
-    const value = url.searchParams.get(key)?.trim()
-    if (value) return value
-  }
-  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
-  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
-  for (const key of SHARE_TOKEN_KEYS) {
-    const value = hashParams.get(key)?.trim()
-    if (value) return value
-  }
-  return ''
+  return readShareTokenFromURL(window.location.href)
 }
 
 function appReturnToWithoutInviteCode(): string {
-  const url = new URL(window.location.href)
-  for (const key of INVITE_CODE_KEYS) url.searchParams.delete(key)
-  removeTokenParams(url.searchParams)
-  removeParams(url.searchParams, SIGNED_OUT_KEYS)
-  const hashText = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash
-  const hashParams = new URLSearchParams(hashText.charAt(0) === '?' ? hashText.slice(1) : hashText)
-  let changedHash = false
-  for (const key of INVITE_CODE_KEYS) {
-    if (hashParams.has(key)) changedHash = true
-    hashParams.delete(key)
-  }
-  for (const key of LAUNCH_TOKEN_KEYS) {
-    if (hashParams.has(key)) changedHash = true
-    hashParams.delete(key)
-  }
-  for (const key of SIGNED_OUT_KEYS) {
-    if (hashParams.has(key)) changedHash = true
-    hashParams.delete(key)
-  }
-  if (changedHash) {
-    const nextHash = hashParams.toString()
-    url.hash = nextHash ? '#' + nextHash : ''
-  }
-  return url.toString()
+  return appReturnToWithoutInviteCodeFromURL(window.location.href)
 }
 
 function appSignedOutReturnTo(): string {
@@ -1360,8 +1320,12 @@ async function fetchAppPublicContext(appConfig: AppRuntimeConfig): Promise<AppPu
     const url = new URL('/api/apps/context', platformURL)
     url.searchParams.set('subdomain', subdomain)
     url.searchParams.set('return_to', appReturnToWithoutInviteCode())
+    const inviteCode = readInviteCodeFromLocation()
+    if (inviteCode) url.searchParams.set('invite_code', inviteCode)
     const shareToken = readShareTokenFromLocation()
     if (shareToken) url.searchParams.set('share_id', shareToken)
+    const visitorSessionID = appVisitorSessionID()
+    if (visitorSessionID) url.searchParams.set('visitor_session_id', visitorSessionID)
     const response = await fetch(url.toString(), { cache: 'no-store' })
     if (!response.ok) return null
     return await response.json() as AppPublicContext
@@ -1418,8 +1382,11 @@ function AuthScreen() {
   const { appConfig, branding } = useAppConfig()
   const [signedOut, setSignedOut] = useState(() => isAppSignedOut())
   const [publicContext, setPublicContext] = useState<AppPublicContext | null>(null)
+  const [publicContextReady, setPublicContextReady] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
   const viewRecordedRef = useRef(false)
+  const inviteRedirectStartedRef = useRef(false)
+  const inviteCode = useMemo(() => readInviteCodeFromLocation(), [])
   const loginURL = useMemo(() => buildHiveAuthURL(appConfig, 'login'), [appConfig])
   const registerURL = useMemo(() => buildHiveAuthURL(appConfig, 'register'), [appConfig])
   const launchURL = useMemo(() => buildHiveAppLaunchURL(appConfig), [appConfig])
@@ -1435,9 +1402,14 @@ function AuthScreen() {
 
   useEffect(() => {
     let active = true
-    void fetchAppPublicContext(appConfig).then((context) => {
-      if (active) setPublicContext(context)
-    })
+    setPublicContextReady(false)
+    void fetchAppPublicContext(appConfig)
+      .then((context) => {
+        if (active) setPublicContext(context)
+      })
+      .finally(() => {
+        if (active) setPublicContextReady(true)
+      })
     return () => { active = false }
   }, [appConfig])
 
@@ -1446,6 +1418,15 @@ function AuthScreen() {
     viewRecordedRef.current = true
     recordAppAcquisitionEvent(appConfig, 'view_home')
   }, [appConfig])
+
+  useEffect(() => {
+    if (!inviteCode || !publicContextReady || !canRegister || !registerURL || inviteRedirectStartedRef.current) return
+    inviteRedirectStartedRef.current = true
+    setAppSignedOut(false)
+    setSignedOut(false)
+    recordAppAcquisitionEvent(appConfig, 'click_register')
+    window.location.assign(registerURL)
+  }, [appConfig, canRegister, inviteCode, publicContextReady, registerURL])
 
   function goToAuth(mode: 'login' | 'register') {
     setAppSignedOut(false)
