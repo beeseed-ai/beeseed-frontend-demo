@@ -33,6 +33,9 @@ test.describe('storage presign payloads', () => {
 
   test('routes PDF previews through the Worker proxy', () => {
     expect(storagePreviewUsesProxy('pdf')).toBe(true)
+    expect(storagePreviewUsesProxy('text')).toBe(true)
+    expect(storagePreviewUsesProxy('code')).toBe(true)
+    expect(storagePreviewUsesProxy('html')).toBe(true)
     expect(storagePreviewUsesProxy('image')).toBe(false)
   })
 })
