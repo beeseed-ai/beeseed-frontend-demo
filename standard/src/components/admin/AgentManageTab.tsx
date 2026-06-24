@@ -86,6 +86,7 @@ interface AgentTemplateSyncResult {
 }
 
 const FALLBACK_TEMPERATURE = 0.7
+const PLATFORM_TEMPLATE_READ_ONLY = true
 const MODEL_TIER_OPTIONS: { value: ModelTierName; label: string; description: string }[] = [
   { value: 'fast', label: '快速', description: '适合日常轻量任务' },
   { value: 'thinking', label: '思考', description: '适合复杂推理和多步骤任务' },
@@ -361,6 +362,7 @@ export function AgentManageTab() {
   }, [api, selectedId])
 
   const updateIdentity = (patch: Partial<IdentityData>) => {
+    if (PLATFORM_TEMPLATE_READ_ONLY) return
     setIdentity((current) => ({ name: '', personality: '', content: '', ...(current ?? {}), ...patch }))
     setDirty(true)
     setSaved(false)
@@ -370,6 +372,7 @@ export function AgentManageTab() {
   }
 
   const updateConfig = (patch: Partial<AgentConfig>) => {
+    if (PLATFORM_TEMPLATE_READ_ONLY) return
     setAgentConfig((current) => ({ ...(current ?? {}), ...patch }))
     setDirty(true)
     setSaved(false)
@@ -379,6 +382,7 @@ export function AgentManageTab() {
   }
 
   const updateModelTierSettings = (patch: Partial<ModelTierSettings>) => {
+    if (PLATFORM_TEMPLATE_READ_ONLY) return
     setAgentConfig((current) => {
       const provider = current?.provider ?? selectedTemplate?.provider ?? ''
       const model = current?.model ?? selectedTemplate?.model ?? ''
@@ -393,6 +397,7 @@ export function AgentManageTab() {
   }
 
   const updateModelTierConfig = (tier: ModelTierName, patch: Partial<ModelTierSettings['tiers'][ModelTierName]>) => {
+    if (PLATFORM_TEMPLATE_READ_ONLY) return
     setAgentConfig((current) => {
       const provider = current?.provider ?? selectedTemplate?.provider ?? ''
       const model = current?.model ?? selectedTemplate?.model ?? ''
@@ -422,6 +427,7 @@ export function AgentManageTab() {
   }
 
   const saveTemplate = async () => {
+    if (PLATFORM_TEMPLATE_READ_ONLY) return
     if (!selectedId || !identity || !agentConfig || !dirty) return
     setSaving(true)
     setSaved(false)
@@ -477,7 +483,7 @@ export function AgentManageTab() {
   }
 
   const syncTemplateChannels = async () => {
-    if (!selectedId || dirty || syncingChannels) return
+    if (!selectedId || syncingChannels) return
     setSyncingChannels(true)
     setSyncError('')
     setSyncResult(null)
@@ -609,8 +615,9 @@ export function AgentManageTab() {
                 <button
                   type="button"
                   onClick={() => void openAddModal()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white text-[#181d26] transition-colors hover:bg-muted"
-                  title="添加 Agent 模板"
+                  disabled={PLATFORM_TEMPLATE_READ_ONLY}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white text-[#181d26] transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  title="平台模板由 Drone 统一同步"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -656,9 +663,9 @@ export function AgentManageTab() {
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(template)}
-                      disabled={templateActionLoading === template.id}
+                      disabled={PLATFORM_TEMPLATE_READ_ONLY || templateActionLoading === template.id}
                       className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white hover:text-red-600 disabled:pointer-events-none disabled:opacity-40"
-                      title={template.blocked_reason || '删除模板'}
+                      title="平台模板不能从 App 删除"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -681,9 +688,9 @@ export function AgentManageTab() {
                       <button
                         type="button"
                         onClick={() => void syncTemplateChannels()}
-                        disabled={syncingChannels || dirty || !selectedId}
+                        disabled={syncingChannels || !selectedId}
                         className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-medium text-[#181d26] transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-                        title={dirty ? '请先保存当前模板，再同步到已有频道' : '把技能和工具同步到已有频道'}
+                        title="用最新平台模板重载已有频道"
                       >
                         <RefreshCw className={cn('h-4 w-4', syncingChannels && 'animate-spin')} />
                         {syncingChannels ? '同步中...' : '同步到已有频道'}
@@ -691,7 +698,7 @@ export function AgentManageTab() {
                       <button
                         type="button"
                         onClick={() => void saveTemplate()}
-                        disabled={saving || !dirty || !identity || !agentConfig}
+                        disabled={PLATFORM_TEMPLATE_READ_ONLY || saving || !dirty || !identity || !agentConfig}
                         className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#181d26] px-3 text-sm font-medium text-white transition-colors hover:bg-[#0d1218] disabled:pointer-events-none disabled:opacity-50"
                       >
                         <Save className="h-4 w-4" />
@@ -713,7 +720,7 @@ export function AgentManageTab() {
                     )}
                     {syncResult && (
                       <div className="rounded-lg border border-[#39bf45]/40 bg-[#39bf45]/10 px-3 py-2 text-sm text-[#006400]">
-                        已检查 {syncResult.channels_matched} 个频道，更新 {syncResult.channels_updated} 个频道，刷新 {syncResult.model_settings_updated ?? 0} 个频道模型设置，新增 {syncResult.skills_added} 个技能引用、{syncResult.tools_added} 个工具引用。
+                        已检查 {syncResult.channels_matched} 个频道，重载 {syncResult.channels_updated} 个频道 AgentRuntime。
                       </div>
                     )}
 
