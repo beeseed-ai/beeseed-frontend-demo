@@ -16,6 +16,7 @@ import {
   cn,
   useAppConfig,
   useAuth,
+  useBeeSeedContext,
   useChannels,
   useChat,
   useDetailPanel,
@@ -51,6 +52,8 @@ const DEFAULT_WELCOME_QUICK_QUESTIONS = [
   '帮我推荐几道新疆的特色美食',
   '请解释为什么苹果从树上掉下来？',
 ]
+
+type RuntimeSkillShortcutAgent = NonNullable<SkillShortcutOption['agents']>[number]
 
 function formatWelcomeTitle(title: string | undefined, fallbackTitle: string | undefined): string {
   const cleanTitle = title?.trim()
@@ -289,25 +292,65 @@ function buildSkillShortcutOptions(members: ChannelMemberInfo[]): SkillShortcutO
   for (const member of members) {
     if (member.member_type !== 'agent' || !member.agent_id) continue
     for (const skill of resolveAgentSkillSummaries(normalizeExtInfo(member.ext_info))) {
-      const current = byName.get(skill.name) ?? {
-        name: skill.name,
-        display_name: skill.display_name,
-        description: skill.description,
-        icon_url: skill.icon_url,
-        source: 'agent' as const,
-        agents: [],
-      }
-      if (!current.agents?.some((agent) => agent.agent_id === member.agent_id)) {
-        current.agents = [
-          ...(current.agents ?? []),
-          { agent_id: member.agent_id, agent_name: readableAgentName(member) },
-        ]
-      }
-      byName.set(skill.name, current)
+      addSkillShortcutOption(byName, skill, { agent_id: member.agent_id, agent_name: readableAgentName(member) })
     }
   }
 
   return [...byName.values()]
+}
+
+function addSkillShortcutOption(
+  byName: Map<string, SkillShortcutOption>,
+  skill: { name: string; display_name?: string; description?: string; icon_url?: string },
+  agent: RuntimeSkillShortcutAgent,
+) {
+  const name = skill.name?.trim()
+  if (!name) return
+  const current = byName.get(name) ?? {
+    name,
+    display_name: skill.display_name,
+    description: skill.description,
+    icon_url: skill.icon_url,
+    source: 'agent' as const,
+    agents: [],
+  }
+  if (!current.agents?.some((item) => item.agent_id === agent.agent_id)) {
+    current.agents = [...(current.agents ?? []), agent]
+  }
+  if (!current.display_name && skill.display_name) current.display_name = skill.display_name
+  if (!current.description && skill.description) current.description = skill.description
+  if (!current.icon_url && skill.icon_url) current.icon_url = skill.icon_url
+  byName.set(name, current)
+}
+
+function mergeSkillShortcutOptions(memberOptions: SkillShortcutOption[], configOptions: SkillShortcutOption[]): SkillShortcutOption[] {
+  const byName = new Map<string, SkillShortcutOption>()
+  for (const option of [...memberOptions, ...configOptions]) {
+    const name = option.name?.trim()
+    if (!name) continue
+    const current = byName.get(name)
+    if (!current) {
+      byName.set(name, { ...option, name, agents: [...(option.agents ?? [])] })
+      continue
+    }
+    for (const agent of option.agents ?? []) {
+      if (!current.agents?.some((item) => item.agent_id === agent.agent_id)) {
+        current.agents = [...(current.agents ?? []), agent]
+      }
+    }
+    if (!current.display_name && option.display_name) current.display_name = option.display_name
+    if (!current.description && option.description) current.description = option.description
+    if (!current.icon_url && option.icon_url) current.icon_url = option.icon_url
+  }
+  return [...byName.values()]
+}
+
+function agentShortcut(member: ChannelMemberInfo): RuntimeSkillShortcutAgent | null {
+  if (member.member_type !== 'agent' || !member.agent_id) return null
+  return {
+    agent_id: member.agent_id,
+    agent_name: readableAgentName(member),
+  }
 }
 
 const TASK_STATUS_LABEL: Record<Task['status'], string> = {
@@ -868,6 +911,9 @@ function MessageList({
   onSubmitAnswer,
   onStopAgent,
   onOpenWorkflowRun,
+  hasOlder = false,
+  loadingOlder = false,
+  onLoadOlder,
   welcomeTitle,
   welcomeFallbackTitle,
   welcomeMessage,
@@ -885,6 +931,9 @@ function MessageList({
   onSubmitAnswer?: (askId: string, answers: Record<string, unknown>) => void
   onStopAgent?: (agentId: string, reason?: string, runId?: string) => void
   onOpenWorkflowRun?: (runId: string) => void
+  hasOlder?: boolean
+  loadingOlder?: boolean
+  onLoadOlder?: () => Promise<void> | void
   welcomeTitle?: string
   welcomeFallbackTitle?: string
   welcomeMessage?: string
@@ -893,6 +942,7 @@ function MessageList({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const shouldAutoScroll = useRef(true)
+  const loadingOlderRef = useRef(false)
   const visibleLoops = useMemo(() => agentLoops ?? [], [agentLoops])
   const displayMessages = useMemo(() => applyMemberDisplay(messages, members), [messages, members])
   const timelineGroups = useMemo(() => buildTimelineGroups(displayMessages, visibleLoops), [displayMessages, visibleLoops])
@@ -925,6 +975,25 @@ function MessageList({
     if (el) el.scrollTop = el.scrollHeight
   }, [])
 
+  const requestOlder = useCallback(async () => {
+    const el = containerRef.current
+    if (!el || !hasOlder || loadingOlder || loadingOlderRef.current || !onLoadOlder) return
+    loadingOlderRef.current = true
+    shouldAutoScroll.current = false
+    const previousScrollHeight = el.scrollHeight
+    try {
+      await onLoadOlder()
+    } finally {
+      requestAnimationFrame(() => {
+        const current = containerRef.current
+        if (current) {
+          current.scrollTop += current.scrollHeight - previousScrollHeight
+        }
+        loadingOlderRef.current = false
+      })
+    }
+  }, [hasOlder, loadingOlder, onLoadOlder])
+
   useEffect(() => {
     if (shouldAutoScroll.current) {
       scrollToBottom()
@@ -942,7 +1011,10 @@ function MessageList({
     const el = containerRef.current
     if (!el) return
     shouldAutoScroll.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100
-  }, [])
+    if (el.scrollTop < 80) {
+      void requestOlder()
+    }
+  }, [requestOlder])
 
   const handleScrollToMessage = useCallback((msgId: number) => {
     const el = document.getElementById(`msg-${msgId}`)
@@ -989,6 +1061,18 @@ function MessageList({
 
         {timelineGroups.length > 0 && (
           <div className="flex min-h-full max-w-full flex-col justify-end gap-1 overflow-x-hidden px-4 py-3">
+            {(hasOlder || loadingOlder) && (
+              <div className="flex justify-center py-2">
+                <button
+                  type="button"
+                  onClick={() => void requestOlder()}
+                  disabled={loadingOlder}
+                  className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 text-xs font-medium text-[#41454d] shadow-sm transition-colors hover:bg-[#f7f7f7] disabled:cursor-default disabled:text-[#9ca3af] disabled:shadow-none"
+                >
+                  {loadingOlder ? '加载中...' : '加载更早消息'}
+                </button>
+              </div>
+            )}
             {timelineGroups.map((group, index) => {
               if (group.kind === 'tool_group') return <ToolGroupBubble key={`tg-${index}`} messages={group.messages} />
               if (group.kind === 'agent_loop') {
@@ -1494,12 +1578,32 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   tasksLoading?: boolean
 }) {
   const { user } = useAuth()
+  const { api } = useBeeSeedContext()
   const { branding } = useAppConfig()
   const { channels } = useChannels()
-  const { messages, streams, agentLoops, members, typings, send, sendWithQuote, submitAnswer, stopAgent, loading } = useChat(channelId)
+  const {
+    messages,
+    streams,
+    agentLoops,
+    members,
+    typings,
+    send,
+    sendWithQuote,
+    submitAnswer,
+    stopAgent,
+    loading,
+    hasOlderMessages,
+    loadingOlderMessages,
+    loadOlderMessages,
+  } = useChat(channelId)
   const { composerInsertText, consumeComposerInsert, openWorkflowRun } = useDetailPanel()
   const [quotedMessage, setQuotedMessage] = useState<ChatMessage | null>(null)
-  const skillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
+  const [configSkillOptions, setConfigSkillOptions] = useState<SkillShortcutOption[]>([])
+  const memberSkillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
+  const skillOptions = useMemo(
+    () => mergeSkillShortcutOptions(memberSkillOptions, configSkillOptions),
+    [memberSkillOptions, configSkillOptions],
+  )
   const channelSettings = useMemo(
     () => parseChannelRuntimeSettings(channels.find((channel) => channel.id === channelId)?.settings),
     [channels, channelId],
@@ -1507,6 +1611,35 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   const welcomeTitle = channelSettings.welcome_title
   const welcomeMessage = channelSettings.welcome_message || branding.welcomeMessage
   const quickQuestions = channelSettings.quick_questions ?? []
+
+  useEffect(() => {
+    let cancelled = false
+    setConfigSkillOptions([])
+    const agents = members.map(agentShortcut).filter((agent): agent is RuntimeSkillShortcutAgent => Boolean(agent))
+    if (!channelId || agents.length === 0) return
+
+    const loadAgentConfigSkills = async () => {
+      const agentConfigs = await Promise.all(agents.map(async (agent) => {
+        const cfg = await api.get(`channels/${channelId}/agents/${encodeURIComponent(agent.agent_id)}/config`).json<Record<string, unknown>>().catch(() => null)
+        return { agent, cfg }
+      }))
+      if (cancelled) return
+
+      const byName = new Map<string, SkillShortcutOption>()
+      for (const { agent, cfg } of agentConfigs) {
+        if (!cfg) continue
+        for (const skill of resolveAgentSkillSummaries(cfg)) {
+          addSkillShortcutOption(byName, skill, agent)
+        }
+      }
+      setConfigSkillOptions([...byName.values()])
+    }
+
+    void loadAgentConfigSkills()
+    return () => {
+      cancelled = true
+    }
+  }, [api, channelId, members])
 
   const handleSend = useCallback((content: string, metadata?: Record<string, unknown>) => {
     if (quotedMessage) {
@@ -1547,6 +1680,9 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
               onSubmitAnswer={submitAnswer}
               onStopAgent={stopAgent}
               onOpenWorkflowRun={openWorkflowRun}
+              hasOlder={hasOlderMessages}
+              loadingOlder={loadingOlderMessages}
+              onLoadOlder={loadOlderMessages}
               welcomeTitle={welcomeTitle}
               welcomeFallbackTitle={branding.title}
               welcomeMessage={welcomeMessage}

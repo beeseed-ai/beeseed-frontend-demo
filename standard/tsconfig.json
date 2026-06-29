@@ -13,6 +13,8 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
+      "@beeseed/beeseed-sdk": ["./src/sdk-runtime.ts"],
+      "@beeseed/beeseed-sdk/tailwind.css": ["../../../beeseed-sdk/tailwind.css"],
       "react": ["./node_modules/@types/react"],
       "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
       "react-dom": ["./node_modules/@types/react-dom"]

@@ -13,6 +13,8 @@ export type {
   KnowledgeSearchResult,
   KnowledgeSource,
   Message,
+  PublicHomeConfig,
+  PublicHomeTemplateID,
   SkillShortcutOption,
   StorageObject,
   StreamState,

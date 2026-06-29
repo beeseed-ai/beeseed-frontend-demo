@@ -86,7 +86,7 @@ interface AgentTemplateSyncResult {
 }
 
 const FALLBACK_TEMPERATURE = 0.7
-const PLATFORM_TEMPLATE_READ_ONLY = true
+const PLATFORM_TEMPLATE_READ_ONLY = false
 const MODEL_TIER_OPTIONS: { value: ModelTierName; label: string; description: string }[] = [
   { value: 'fast', label: '快速', description: '适合日常轻量任务' },
   { value: 'thinking', label: '思考', description: '适合复杂推理和多步骤任务' },
@@ -617,7 +617,7 @@ export function AgentManageTab() {
                   onClick={() => void openAddModal()}
                   disabled={PLATFORM_TEMPLATE_READ_ONLY}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white text-[#181d26] transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                  title="平台模板由 Drone 统一同步"
+                  title="添加 Agent 模板"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -665,7 +665,7 @@ export function AgentManageTab() {
                       onClick={() => setDeleteTarget(template)}
                       disabled={PLATFORM_TEMPLATE_READ_ONLY || templateActionLoading === template.id}
                       className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white hover:text-red-600 disabled:pointer-events-none disabled:opacity-40"
-                      title="平台模板不能从 App 删除"
+                      title={template.blocked_reason || '删除模板'}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -681,7 +681,7 @@ export function AgentManageTab() {
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-semibold text-[#1a1a1a]">{displayName}</h3>
                       <span className="text-xs text-muted-foreground">
-                        {role} · Template ID: {selectedTemplate.id} · 版本：{formatAgentVersion(selectedTemplate.version)}
+                        {role} · 配置 ID：{selectedTemplate.id} · 版本：{formatAgentVersion(selectedTemplate.version)}
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -690,7 +690,7 @@ export function AgentManageTab() {
                         onClick={() => void syncTemplateChannels()}
                         disabled={syncingChannels || !selectedId}
                         className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-medium text-[#181d26] transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-                        title="用最新平台模板重载已有频道"
+                        title="让已有频道使用最新配置"
                       >
                         <RefreshCw className={cn('h-4 w-4', syncingChannels && 'animate-spin')} />
                         {syncingChannels ? '同步中...' : '同步到已有频道'}
@@ -720,7 +720,7 @@ export function AgentManageTab() {
                     )}
                     {syncResult && (
                       <div className="rounded-lg border border-[#39bf45]/40 bg-[#39bf45]/10 px-3 py-2 text-sm text-[#006400]">
-                        已检查 {syncResult.channels_matched} 个频道，重载 {syncResult.channels_updated} 个频道 AgentRuntime。
+                        已检查 {syncResult.channels_matched} 个频道，刷新 {syncResult.channels_updated} 个频道。
                       </div>
                     )}
 
@@ -805,7 +805,7 @@ export function AgentManageTab() {
                     <div className="space-y-3 rounded-lg border border-border bg-[#fafafa] p-3">
                       <div>
                         <div className="text-sm font-medium text-[#181d26]">模型等级映射</div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">为当前 Agent 单独配置快速、思考、专业三档对应的底层模型。</div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">为当前 Agent 单独配置快速、思考、专业三档对应的模型。</div>
                       </div>
                       {MODEL_TIER_OPTIONS.map((option) => {
                         const tierConfig = modelTierSettings.tiers[option.value]
@@ -978,7 +978,7 @@ export function AgentManageTab() {
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div>
                 <h3 className="text-sm font-semibold text-[#1a1a1a]">添加 Agent 模板</h3>
-                <p className="mt-1 text-xs text-muted-foreground">从平台模板库添加到当前 App</p>
+                <p className="mt-1 text-xs text-muted-foreground">从可用模板添加到当前 App</p>
               </div>
               <button
                 type="button"
