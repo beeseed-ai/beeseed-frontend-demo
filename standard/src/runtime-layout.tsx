@@ -24,8 +24,10 @@ import {
   useTasks,
   type AgentLoopEventItem,
   type AgentLoopState,
+  type ArtifactRevisionTarget,
   type ChannelWithMeta,
   type ChannelMemberInfo,
+  type ChatArtifact,
   type ChatMessage,
   type SkillShortcutOption,
   type StreamState,
@@ -911,6 +913,7 @@ function MessageList({
   onSubmitAnswer,
   onStopAgent,
   onOpenWorkflowRun,
+  onReviseArtifact,
   hasOlder = false,
   loadingOlder = false,
   onLoadOlder,
@@ -931,6 +934,7 @@ function MessageList({
   onSubmitAnswer?: (askId: string, answers: Record<string, unknown>) => void
   onStopAgent?: (agentId: string, reason?: string, runId?: string) => void
   onOpenWorkflowRun?: (runId: string) => void
+  onReviseArtifact?: (artifact: ChatArtifact, message: ChatMessage) => void
   hasOlder?: boolean
   loadingOlder?: boolean
   onLoadOlder?: () => Promise<void> | void
@@ -1104,6 +1108,7 @@ function MessageList({
                   onScrollToMessage={handleScrollToMessage}
                   onSubmitAnswer={onSubmitAnswer}
                   onOpenWorkflowRun={onOpenWorkflowRun}
+                  onReviseArtifact={onReviseArtifact}
                 />
               )
             })}
@@ -1157,6 +1162,8 @@ interface PasteAwareMessageInputProps {
   tasksLoading?: boolean
   quotedMessage?: ChatMessage | null
   onClearQuote?: () => void
+  revisionTarget?: ArtifactRevisionTarget | null
+  onClearRevisionTarget?: () => void
   insertText?: string | null
   onInsertTextConsumed?: () => void
 }
@@ -1178,6 +1185,8 @@ function PasteAwareMessageInput({
   tasksLoading = false,
   quotedMessage,
   onClearQuote,
+  revisionTarget,
+  onClearRevisionTarget,
   insertText,
   onInsertTextConsumed,
 }: PasteAwareMessageInputProps) {
@@ -1559,6 +1568,8 @@ function PasteAwareMessageInput({
           members={members}
           quotedMessage={quotedMessage}
           onClearQuote={onClearQuote}
+          revisionTarget={revisionTarget}
+          onClearRevisionTarget={onClearRevisionTarget}
           insertText={pastedInsertText ?? taskInsertText ?? insertText}
           onInsertTextConsumed={handleInsertTextConsumed}
           placeholder={placeholder}
@@ -1598,6 +1609,7 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   } = useChat(channelId)
   const { composerInsertText, consumeComposerInsert, openWorkflowRun } = useDetailPanel()
   const [quotedMessage, setQuotedMessage] = useState<ChatMessage | null>(null)
+  const [revisionTarget, setRevisionTarget] = useState<ArtifactRevisionTarget | null>(null)
   const [configSkillOptions, setConfigSkillOptions] = useState<SkillShortcutOption[]>([])
   const memberSkillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
   const skillOptions = useMemo(
@@ -1648,7 +1660,16 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
     } else {
       send(content, metadata)
     }
+    setRevisionTarget(null)
   }, [quotedMessage, send, sendWithQuote])
+
+  const handleReviseArtifact = useCallback((artifact: ChatArtifact, message: ChatMessage) => {
+    setRevisionTarget({
+      ...artifact,
+      sourceMessageId: message.msgId,
+      sourceRunId: message.agentRunId,
+    })
+  }, [])
 
   return (
     <div className={cn('flex h-full flex-col bg-[#fafafa]', className)}>
@@ -1680,6 +1701,7 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
               onSubmitAnswer={submitAnswer}
               onStopAgent={stopAgent}
               onOpenWorkflowRun={openWorkflowRun}
+              onReviseArtifact={handleReviseArtifact}
               hasOlder={hasOlderMessages}
               loadingOlder={loadingOlderMessages}
               onLoadOlder={loadOlderMessages}
@@ -1698,6 +1720,8 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
               members={members}
               quotedMessage={quotedMessage}
               onClearQuote={() => setQuotedMessage(null)}
+              revisionTarget={revisionTarget}
+              onClearRevisionTarget={() => setRevisionTarget(null)}
               insertText={composerInsertText}
               onInsertTextConsumed={consumeComposerInsert}
               placeholder={branding.inputPlaceholder}

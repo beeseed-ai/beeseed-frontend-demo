@@ -6,6 +6,8 @@ export type {
   AgentLoopToolCall,
   AppRuntimeConfig,
   AskUserQuestion,
+  ArtifactRevisionTarget,
+  ChatArtifact,
   ChannelMemberInfo,
   ChannelWithMeta,
   ChatMessage,

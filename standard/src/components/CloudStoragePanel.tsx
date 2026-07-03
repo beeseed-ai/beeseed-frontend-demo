@@ -22,6 +22,9 @@ interface DraftDirectory {
   creating: boolean
 }
 
+const UUID_DIRECTORY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const LOCAL_RUN_DIRECTORY_RE = /^local-run-([A-Za-z0-9]{6,})$/
+
 function storageDisplayName(obj: { key: string; name?: string; display_name?: string }) {
   return obj.display_name || obj.name || obj.key.split('/').pop() || obj.key
 }
@@ -32,6 +35,18 @@ function storageRefFromKey(key: string) {
 
 function directoryDisplayName(dir: string) {
   return dir.replace(/\/$/, '').split('/').pop() || dir
+}
+
+function directoryFriendlyName(dir: string) {
+  const name = directoryDisplayName(dir)
+  if (UUID_DIRECTORY_RE.test(name)) {
+    return `平台技能产物 ${name.slice(0, 8)}`
+  }
+  const localRun = name.match(LOCAL_RUN_DIRECTORY_RE)
+  if (localRun?.[1]) {
+    return `平台技能产物 ${localRun[1].slice(0, 8)}`
+  }
+  return name
 }
 
 function nextDirectoryName(directories: string[]) {
@@ -273,16 +288,26 @@ export function CloudStoragePanel({ channelId, className, onReference }: Props) 
                 {draftDirectory.creating && <span className="text-xs text-muted-foreground">创建中...</span>}
               </div>
             )}
-            {directories.map((dir) => (
-              <button
-                key={dir}
-                onClick={() => browse(dir)}
-                className="flex items-center gap-3 px-4 py-2 w-full hover:bg-muted/50 transition-colors"
-              >
-                <FolderOpen className="w-4 h-4 text-amber-500" />
-                <span className="text-sm">{directoryDisplayName(dir)}</span>
-              </button>
-            ))}
+            {directories.map((dir) => {
+              const rawName = directoryDisplayName(dir)
+              const friendlyName = directoryFriendlyName(dir)
+              return (
+                <button
+                  key={dir}
+                  onClick={() => browse(dir)}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-muted/50"
+                  title={dir}
+                >
+                  <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{friendlyName}</span>
+                    {friendlyName !== rawName && (
+                      <span className="block truncate text-[10px] text-muted-foreground">{rawName}</span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
             {objects.map((obj) => {
               const refText = storageRefFromKey(obj.key)
               const displayName = storageDisplayName(obj)
