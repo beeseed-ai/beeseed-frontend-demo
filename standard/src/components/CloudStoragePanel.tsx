@@ -228,7 +228,7 @@ export function CloudStoragePanel({ channelId, className, onReference }: Props) 
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{uploadError}</span>
+              <span className="min-w-0 flex-1 leading-5">{uploadError}</span>
               <button className="rounded p-0.5 hover:bg-destructive/10" onClick={clearUploadError} aria-label="关闭错误">
                 <X className="h-3.5 w-3.5" />
               </button>
