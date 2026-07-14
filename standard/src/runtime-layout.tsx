@@ -40,6 +40,7 @@ import {
 } from './runtime-recovery'
 import { resolveAgentSkillSummaries } from './agent-skill-catalog'
 import { RuntimeAgentRunTranscript, RuntimeThinkingBlock } from './runtime-agent-run-transcript'
+import { latestPendingAskUserForUser, pendingAskUserKey } from './ask-user-action'
 
 const CHAT_MAX_WIDTH = 820
 const CHAT_UPLOAD_PREFIX = '__chat_uploads/'
@@ -459,11 +460,20 @@ type TimelineGroup =
   | { kind: 'tool_group'; messages: ChatMessage[] }
   | { kind: 'agent_loop'; key: string; loop: AgentLoopState; events: AgentLoopEventItem[]; finalMessage?: ChatMessage }
 
-function channelsForDisplay(channels: ChannelWithMeta[], currentChannelId: string | null): ChannelWithMeta[] {
+function channelsForDisplay(
+  channels: ChannelWithMeta[],
+  currentChannelId: string | null,
+  hasPendingAskUser: boolean,
+): ChannelWithMeta[] {
   if (!currentChannelId) return channels
   let changed = false
   const nextChannels = channels.map((channel) => {
-    if (channel.id !== currentChannelId || channel.unread_count === 0) return channel
+    if (channel.id !== currentChannelId) return channel
+    if (hasPendingAskUser && channel.unread_count === 0) {
+      changed = true
+      return { ...channel, unread_count: 1 }
+    }
+    if (hasPendingAskUser || channel.unread_count === 0) return channel
     changed = true
     return { ...channel, unread_count: 0 }
   })
@@ -946,9 +956,14 @@ function MessageList({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const shouldAutoScroll = useRef(true)
+  const lastForcedAskUserKeyRef = useRef<string | null>(null)
   const loadingOlderRef = useRef(false)
   const visibleLoops = useMemo(() => agentLoops ?? [], [agentLoops])
   const displayMessages = useMemo(() => applyMemberDisplay(messages, members), [messages, members])
+  const actionableAskUserKey = useMemo(
+    () => pendingAskUserKey(latestPendingAskUserForUser(displayMessages, currentUserId)),
+    [currentUserId, displayMessages],
+  )
   const timelineGroups = useMemo(() => buildTimelineGroups(displayMessages, visibleLoops), [displayMessages, visibleLoops])
   const loopGroupLastIndexes = useMemo(() => {
     const indexes = new Map<string, number>()
@@ -978,6 +993,17 @@ function MessageList({
     const el = containerRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [])
+
+  useEffect(() => {
+    if (!actionableAskUserKey || lastForcedAskUserKeyRef.current === actionableAskUserKey) return
+    lastForcedAskUserKeyRef.current = actionableAskUserKey
+    shouldAutoScroll.current = true
+    scrollToBottom()
+    requestAnimationFrame(() => {
+      scrollToBottom()
+      requestAnimationFrame(scrollToBottom)
+    })
+  }, [actionableAskUserKey, scrollToBottom])
 
   const requestOlder = useCallback(async () => {
     const el = containerRef.current
@@ -1826,14 +1852,18 @@ export function RuntimeAppLayout({ className }: { className?: string }) {
   const { channels, currentChannelId, loading, setCurrentChannel } = useChannels()
   const { user } = useAuth()
   const { activeFeature, setActiveFeature, panelVisible, togglePanel, setPanel } = useDetailPanel()
-  const { members, refreshMembers } = useChat(currentChannelId)
+  const { messages, members, refreshMembers } = useChat(currentChannelId)
   const { tasks, loading: tasksLoading } = useTasks(currentChannelId)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const isAdmin = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'super_admin'
+  const hasPendingAskUser = useMemo(
+    () => Boolean(latestPendingAskUserForUser(messages, user?.id)),
+    [messages, user?.id],
+  )
   const displayChannels = useMemo(
-    () => channelsForDisplay(channels, currentChannelId),
-    [channels, currentChannelId],
+    () => channelsForDisplay(channels, currentChannelId, hasPendingAskUser),
+    [channels, currentChannelId, hasPendingAskUser],
   )
 
   useEffect(() => {

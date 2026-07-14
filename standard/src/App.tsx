@@ -40,6 +40,7 @@ import {
   userFacingMessageContent,
 } from './runtime-recovery'
 import { installRuntimeStorageSafety } from './storage-safety'
+import { latestPendingAskUserForUser, readAckBeforePendingAsk } from './ask-user-action'
 import {
   APP_SIGNED_OUT_KEYS as SIGNED_OUT_KEYS,
   appReturnToWithoutInviteCodeFromURL,
@@ -1654,6 +1655,7 @@ function latestChatMessageId(messages: ChatMessage[] | undefined): number {
 
 function ChannelUnreadSync() {
   const { api, channelsStore, messagesStore, ws } = useBeeSeedContext()
+  const { user } = useAuth()
   const { currentChannelId, updateUnread } = useChannels()
   const currentUnreadCount = useStore(channelsStore, (state) => {
     if (!state.currentChannelId) return 0
@@ -1663,19 +1665,38 @@ function ChannelUnreadSync() {
     const channelId = channelsStore.getState().currentChannelId
     return latestChatMessageId(channelId ? state.messages.get(channelId) : undefined)
   })
+  const currentMessagesLoaded = useStore(messagesStore, (state) => {
+    const channelId = channelsStore.getState().currentChannelId
+    return Boolean(channelId && state.messages.has(channelId) && state.loadingChannel !== channelId)
+  })
+  const pendingAskUserMessage = useStore(messagesStore, (state) => {
+    const channelId = channelsStore.getState().currentChannelId
+    return latestPendingAskUserForUser(channelId ? state.messages.get(channelId) : undefined, user?.id)
+  })
+  const pendingAskUserMsgId = pendingAskUserMessage?.msgId ?? 0
   const ackedMessageIdsRef = useRef(new Map<string, number>())
   const syncKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!currentChannelId) return
+    if (!currentChannelId || !currentMessagesLoaded) return
 
     let active = true
-    const syncKey = `${currentChannelId}:${currentUnreadCount}:${latestLocalMsgId}`
+    const syncKey = `${currentChannelId}:${currentUnreadCount}:${latestLocalMsgId}:${pendingAskUserMsgId}`
     if (syncKeyRef.current === syncKey) {
-      updateUnread(currentChannelId, 0)
+      if (!pendingAskUserMessage) updateUnread(currentChannelId, 0)
       return
     }
     syncKeyRef.current = syncKey
+
+    if (pendingAskUserMessage) {
+      if (currentUnreadCount === 0) updateUnread(currentChannelId, 1)
+      const readableThroughMsgId = readAckBeforePendingAsk(pendingAskUserMessage)
+      if (readableThroughMsgId > (ackedMessageIdsRef.current.get(currentChannelId) ?? 0)) {
+        ackedMessageIdsRef.current.set(currentChannelId, readableThroughMsgId)
+        ws.send({ type: 'read_ack', channel_id: currentChannelId, msg_id: readableThroughMsgId })
+      }
+      return
+    }
 
     updateUnread(currentChannelId, 0)
 
@@ -1697,7 +1718,17 @@ function ChannelUnreadSync() {
     return () => {
       active = false
     }
-  }, [api, currentChannelId, currentUnreadCount, latestLocalMsgId, updateUnread, ws])
+  }, [
+    api,
+    currentChannelId,
+    currentMessagesLoaded,
+    currentUnreadCount,
+    latestLocalMsgId,
+    pendingAskUserMessage,
+    pendingAskUserMsgId,
+    updateUnread,
+    ws,
+  ])
 
   return null
 }
