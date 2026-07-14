@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ChatMessage } from '@beeseed/beeseed-sdk'
-import { normalizeAskUserMarkdown } from '../../../../beeseed-sdk/src/components/chat/AskUserCard'
+import { normalizeAskUserMarkdown, questionPromptStyle } from '../../../../beeseed-sdk/src/components/chat/AskUserCard'
 import {
   isPendingAskUserForUser,
   latestPendingAskUserForUser,
@@ -31,6 +31,10 @@ test.describe('ask_user action feedback', () => {
     expect(normalizeAskUserMarkdown('**方案**\\r\\n1. 第一项\\n2. 第二项')).toBe(
       '**方案**\n1. 第一项\n2. 第二项',
     )
+  })
+
+  test('does not preserve Markdown block separator text as extra visual lines', () => {
+    expect(questionPromptStyle.whiteSpace).toBe('normal')
   })
 
   test('only treats pending questions visible to the current user as actionable', () => {
