@@ -3,6 +3,7 @@ import { Bot, Plus, RefreshCw, Save, Search, Trash2, X } from 'lucide-react'
 import { cn, SkillIcon, useBeeSeedContext } from '@beeseed/beeseed-sdk'
 
 type ModelTierName = 'fast' | 'thinking' | 'pro'
+type AgentRuntime = 'worker' | 'codex'
 interface ModelTierConfig {
   provider: string
   model: string
@@ -18,6 +19,7 @@ interface AgentTemplateInfo {
   id: string
   name: string
   role: string
+  runtime?: AgentRuntime | ''
   version?: string
   is_active?: boolean
   provider: string
@@ -42,6 +44,7 @@ interface IdentityData {
 
 interface AgentConfig {
   role?: string
+  runtime?: AgentRuntime | ''
   template_version?: string
   provider?: string
   model?: string
@@ -52,6 +55,7 @@ interface AgentConfig {
   tools?: string[]
   skills?: string[]
   avatar_preset?: string
+  agents_md?: string
   [key: string]: unknown
 }
 
@@ -83,6 +87,7 @@ interface AgentTemplateSyncResult {
   model_settings_updated?: number
   skills_added: number
   tools_added: number
+  runtime_updated?: number
 }
 
 const FALLBACK_TEMPERATURE = 0.7
@@ -353,10 +358,12 @@ export function AgentManageTab() {
       setIdentity(id)
       setAgentConfig(cfg ? {
         ...cfg,
+        runtime: cfg.runtime === 'codex' ? 'codex' : 'worker',
         model_tier: normalizeModelTier(cfg.model_tier),
         model_tiers: normalizeModelTierSettings(cfg.model_tiers, cfg.provider, cfg.model),
         tools: cfg.tools ?? [],
         skills: cfg.skills ?? [],
+        agents_md: cfg.agents_md ?? '',
       } : null)
     })
   }, [api, selectedId])
@@ -461,6 +468,7 @@ export function AgentManageTab() {
               ...template,
               name: identityPayload.name || template.name,
               role: String(configPayload.role || template.role),
+              runtime: configPayload.runtime === 'codex' ? 'codex' : 'worker',
               provider: String(configPayload.provider || template.provider),
               model: String(configPayload.model || template.model),
               model_tier: '',
@@ -573,6 +581,7 @@ export function AgentManageTab() {
   const selectedTemplate = selectedId ? templates.find((template) => template.id === selectedId) ?? null : null
   const displayName = labelOrFallback(identity?.name || selectedTemplate?.name, selectedTemplate?.id || 'Agent')
   const role = labelOrFallback(agentConfig?.role || selectedTemplate?.role, selectedTemplate?.id || 'agent')
+  const agentRuntime: AgentRuntime = agentConfig?.runtime === 'codex' || selectedTemplate?.runtime === 'codex' ? 'codex' : 'worker'
   const modelTierSettings = normalizeModelTierSettings(agentConfig?.model_tiers ?? selectedTemplate?.model_tiers, agentConfig?.provider ?? selectedTemplate?.provider, agentConfig?.model ?? selectedTemplate?.model)
   const temperature = typeof agentConfig?.temperature === 'number' ? agentConfig.temperature : FALLBACK_TEMPERATURE
   const tools = agentConfig?.tools ?? selectedTemplate?.tools ?? []
@@ -702,7 +711,9 @@ export function AgentManageTab() {
                         className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#181d26] px-3 text-sm font-medium text-white transition-colors hover:bg-[#0d1218] disabled:pointer-events-none disabled:opacity-50"
                       >
                         <Save className="h-4 w-4" />
-                        {saving ? '保存中...' : saved ? '已保存' : '保存'}
+                        {saving
+                          ? agentRuntime === 'codex' ? '发布中...' : '保存中...'
+                          : saved ? '已保存' : agentRuntime === 'codex' ? '保存并发布' : '保存'}
                       </button>
                     </div>
                   </div>
@@ -720,9 +731,43 @@ export function AgentManageTab() {
                     )}
                     {syncResult && (
                       <div className="rounded-lg border border-[#39bf45]/40 bg-[#39bf45]/10 px-3 py-2 text-sm text-[#006400]">
-                        已检查 {syncResult.channels_matched} 个频道，刷新 {syncResult.channels_updated} 个频道。
+                        已检查 {syncResult.channels_matched} 个频道，刷新 {syncResult.channels_updated} 个频道
+                        {typeof syncResult.runtime_updated === 'number' && syncResult.runtime_updated > 0
+                          ? `，切换 ${syncResult.runtime_updated} 个运行环境`
+                          : ''}。
                       </div>
                     )}
+
+                    <div className="rounded-lg border border-border bg-[#fafafa] p-3">
+                      <div className="text-sm font-medium text-[#181d26]">运行环境</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">选择消息由内置 Worker 处理，还是由独立 Docker 中的 Codex CLI 处理。</div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {([
+                          { value: 'worker' as const, label: 'Worker', description: '使用 BeeSeed 内置 Agent Runtime' },
+                          { value: 'codex' as const, label: 'Codex Runtime', description: '每个频道 Agent 使用独立 Docker 实例' },
+                        ]).map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => updateConfig({ runtime: option.value })}
+                            className={cn(
+                              'rounded-lg border bg-white p-3 text-left transition-colors',
+                              agentRuntime === option.value
+                                ? 'border-[#181d26] ring-2 ring-[#181d26]/10'
+                                : 'border-border hover:border-[#9297a0] hover:bg-muted',
+                            )}
+                          >
+                            <div className="text-sm font-medium text-[#181d26]">{option.label}</div>
+                            <div className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                      {agentRuntime === 'codex' && (
+                        <div className="mt-3 rounded-md border border-[#181d26]/15 bg-white px-3 py-2 text-xs leading-5 text-[#555]">
+                          保存时会先发布并校验只读 Agent 模板；Runtime Manager 未就绪时不会切换现有配置。
+                        </div>
+                      )}
+                    </div>
 
                     <div>
                       <label className="mb-2 block text-xs font-medium text-[#555]">头像</label>
@@ -951,6 +996,20 @@ export function AgentManageTab() {
                           })}
                         </div>
                       )}
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-[#555]">Agent 指令（AGENTS.md）</label>
+                      <textarea
+                        value={agentConfig?.agents_md ?? ''}
+                        onChange={(event) => updateConfig({ agents_md: event.target.value })}
+                        spellCheck={false}
+                        className="h-52 w-full resize-y rounded-lg border border-border bg-white px-3 py-2 font-mono text-sm leading-6 text-[#1a1a1a] outline-none focus:border-[#9297a0] focus:ring-2 focus:ring-[#9297a0]/20"
+                        placeholder="# Agent instructions"
+                      />
+                      <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                        此处保存为当前 App 的覆盖文件。平台模板保持只读；留空会恢复使用平台模板中的 AGENTS.md。
+                      </p>
                     </div>
 
                     <details className="text-xs">
