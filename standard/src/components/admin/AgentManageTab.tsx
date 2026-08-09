@@ -3,7 +3,7 @@ import { Bot, Plus, RefreshCw, Save, Search, Trash2, X } from 'lucide-react'
 import { cn, SkillIcon, useBeeSeedContext } from '@beeseed/beeseed-sdk'
 
 type ModelTierName = 'fast' | 'thinking' | 'pro'
-type AgentRuntime = 'worker' | 'codex'
+type AgentRuntime = 'worker' | 'reasonix'
 interface ModelTierConfig {
   provider: string
   model: string
@@ -358,7 +358,7 @@ export function AgentManageTab() {
       setIdentity(id)
       setAgentConfig(cfg ? {
         ...cfg,
-        runtime: cfg.runtime === 'codex' ? 'codex' : 'worker',
+		runtime: cfg.runtime === 'reasonix' ? 'reasonix' : 'worker',
         model_tier: normalizeModelTier(cfg.model_tier),
         model_tiers: normalizeModelTierSettings(cfg.model_tiers, cfg.provider, cfg.model),
         tools: cfg.tools ?? [],
@@ -468,7 +468,7 @@ export function AgentManageTab() {
               ...template,
               name: identityPayload.name || template.name,
               role: String(configPayload.role || template.role),
-              runtime: configPayload.runtime === 'codex' ? 'codex' : 'worker',
+			  runtime: configPayload.runtime === 'reasonix' ? 'reasonix' : 'worker',
               provider: String(configPayload.provider || template.provider),
               model: String(configPayload.model || template.model),
               model_tier: '',
@@ -581,7 +581,7 @@ export function AgentManageTab() {
   const selectedTemplate = selectedId ? templates.find((template) => template.id === selectedId) ?? null : null
   const displayName = labelOrFallback(identity?.name || selectedTemplate?.name, selectedTemplate?.id || 'Agent')
   const role = labelOrFallback(agentConfig?.role || selectedTemplate?.role, selectedTemplate?.id || 'agent')
-  const agentRuntime: AgentRuntime = agentConfig?.runtime === 'codex' || selectedTemplate?.runtime === 'codex' ? 'codex' : 'worker'
+  const agentRuntime: AgentRuntime = agentConfig?.runtime === 'reasonix' || selectedTemplate?.runtime === 'reasonix' ? 'reasonix' : 'worker'
   const modelTierSettings = normalizeModelTierSettings(agentConfig?.model_tiers ?? selectedTemplate?.model_tiers, agentConfig?.provider ?? selectedTemplate?.provider, agentConfig?.model ?? selectedTemplate?.model)
   const temperature = typeof agentConfig?.temperature === 'number' ? agentConfig.temperature : FALLBACK_TEMPERATURE
   const tools = agentConfig?.tools ?? selectedTemplate?.tools ?? []
@@ -712,8 +712,8 @@ export function AgentManageTab() {
                       >
                         <Save className="h-4 w-4" />
                         {saving
-                          ? agentRuntime === 'codex' ? '发布中...' : '保存中...'
-                          : saved ? '已保存' : agentRuntime === 'codex' ? '保存并发布' : '保存'}
+                          ? '保存中...'
+                          : saved ? '已保存' : '保存'}
                       </button>
                     </div>
                   </div>
@@ -740,11 +740,11 @@ export function AgentManageTab() {
 
                     <div className="rounded-lg border border-border bg-[#fafafa] p-3">
                       <div className="text-sm font-medium text-[#181d26]">运行环境</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">选择消息由内置 Worker 处理，还是由独立 Docker 中的 Codex CLI 处理。</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">选择消息由内置 Worker Agent 处理，还是由独立 Docker 中的 ReasonIX Agent 处理。</div>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         {([
                           { value: 'worker' as const, label: 'Worker', description: '使用 BeeSeed 内置 Agent Runtime' },
-                          { value: 'codex' as const, label: 'Codex Runtime', description: '每个频道 Agent 使用独立 Docker 实例' },
+                          { value: 'reasonix' as const, label: 'ReasonIX Runtime', description: '每个 Workspace 使用独立 Docker ReasonIX 实例' },
                         ]).map((option) => (
                           <button
                             key={option.value}
@@ -762,9 +762,9 @@ export function AgentManageTab() {
                           </button>
                         ))}
                       </div>
-                      {agentRuntime === 'codex' && (
+                      {agentRuntime === 'reasonix' && (
                         <div className="mt-3 rounded-md border border-[#181d26]/15 bg-white px-3 py-2 text-xs leading-5 text-[#555]">
-                          保存时会先发布并校验只读 Agent 模板；Runtime Manager 未就绪时不会切换现有配置。
+                          保存后，ReasonIX Runtime 会按 Workspace 与频道重新收敛 Agent 配置。
                         </div>
                       )}
                     </div>
