@@ -708,7 +708,7 @@ export function AgentManageTab() {
                     )}
                     {syncResult && (
                       <div className="rounded-lg border border-[#39bf45]/40 bg-[#39bf45]/10 px-3 py-2 text-sm text-[#006400]">
-                        已检查 {syncResult.channels_matched} 个频道，重载 {syncResult.channels_updated} 个频道 AgentRuntime。
+                        已检查 {syncResult.channels_matched} 个频道，重载 {syncResult.channels_updated} 个频道 Agent。
                       </div>
                     )}
 

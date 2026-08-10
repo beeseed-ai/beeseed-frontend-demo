@@ -581,7 +581,6 @@ export function AgentManageTab() {
   const selectedTemplate = selectedId ? templates.find((template) => template.id === selectedId) ?? null : null
   const displayName = labelOrFallback(identity?.name || selectedTemplate?.name, selectedTemplate?.id || 'Agent')
   const role = labelOrFallback(agentConfig?.role || selectedTemplate?.role, selectedTemplate?.id || 'agent')
-  const agentRuntime: AgentRuntime = agentConfig?.runtime === 'reasonix' || selectedTemplate?.runtime === 'reasonix' ? 'reasonix' : 'worker'
   const modelTierSettings = normalizeModelTierSettings(agentConfig?.model_tiers ?? selectedTemplate?.model_tiers, agentConfig?.provider ?? selectedTemplate?.provider, agentConfig?.model ?? selectedTemplate?.model)
   const temperature = typeof agentConfig?.temperature === 'number' ? agentConfig.temperature : FALLBACK_TEMPERATURE
   const tools = agentConfig?.tools ?? selectedTemplate?.tools ?? []
@@ -731,43 +730,9 @@ export function AgentManageTab() {
                     )}
                     {syncResult && (
                       <div className="rounded-lg border border-[#39bf45]/40 bg-[#39bf45]/10 px-3 py-2 text-sm text-[#006400]">
-                        已检查 {syncResult.channels_matched} 个频道，刷新 {syncResult.channels_updated} 个频道
-                        {typeof syncResult.runtime_updated === 'number' && syncResult.runtime_updated > 0
-                          ? `，切换 ${syncResult.runtime_updated} 个运行环境`
-                          : ''}。
+                        已检查 {syncResult.channels_matched} 个频道，刷新 {syncResult.channels_updated} 个频道。
                       </div>
                     )}
-
-                    <div className="rounded-lg border border-border bg-[#fafafa] p-3">
-                      <div className="text-sm font-medium text-[#181d26]">运行环境</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">选择消息由内置 Worker Agent 处理，还是由独立 Docker 中的 ReasonIX Agent 处理。</div>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {([
-                          { value: 'worker' as const, label: 'Worker', description: '使用 BeeSeed 内置 Agent Runtime' },
-                          { value: 'reasonix' as const, label: 'ReasonIX Runtime', description: '每个 Workspace 使用独立 Docker ReasonIX 实例' },
-                        ]).map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => updateConfig({ runtime: option.value })}
-                            className={cn(
-                              'rounded-lg border bg-white p-3 text-left transition-colors',
-                              agentRuntime === option.value
-                                ? 'border-[#181d26] ring-2 ring-[#181d26]/10'
-                                : 'border-border hover:border-[#9297a0] hover:bg-muted',
-                            )}
-                          >
-                            <div className="text-sm font-medium text-[#181d26]">{option.label}</div>
-                            <div className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</div>
-                          </button>
-                        ))}
-                      </div>
-                      {agentRuntime === 'reasonix' && (
-                        <div className="mt-3 rounded-md border border-[#181d26]/15 bg-white px-3 py-2 text-xs leading-5 text-[#555]">
-                          保存后，ReasonIX Runtime 会按 Workspace 与频道重新收敛 Agent 配置。
-                        </div>
-                      )}
-                    </div>
 
                     <div>
                       <label className="mb-2 block text-xs font-medium text-[#555]">头像</label>
