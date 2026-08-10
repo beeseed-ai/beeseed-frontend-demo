@@ -78,8 +78,8 @@ function agentSkillsDialogOverlay(): Plugin {
           "import { CloudStoragePanel } from '@standard/cloud-storage-panel'",
         ],
         [
-          "import { useMemo, useState } from 'react'",
-          "import { useMemo, useState } from 'react'\nimport { resolveAgentSkillSummaries, type AgentSkillSummary } from '@standard/agent-skill-catalog'",
+          "import { useEffect, useMemo, useState } from 'react'",
+          "import { useEffect, useMemo, useState } from 'react'\nimport { resolveAgentSkillSummaries, type AgentSkillSummary } from '@standard/agent-skill-catalog'",
         ],
         [
           "  const [agentSettingsSaving, setAgentSettingsSaving] = useState(false)",
@@ -466,7 +466,15 @@ function mobileMessageInputOverlay(): Plugin {
       const normalizedId = id.split('?')[0].split(path.sep).join('/')
       if (!normalizedId.endsWith('/beeseed-sdk/src/components/chat/MessageInput.tsx')) return null
 
-      const workflowButton = `            <button className="flex items-center gap-1 h-8 px-2 rounded-lg text-[#888] hover:text-black hover:bg-black/5 transition-colors text-sm shrink-0">
+      const workflowButton = `            <button
+              ref={workflowTriggerRef}
+              type="button"
+              onClick={triggerWorkflowMenu}
+              className={cn(
+                'flex items-center gap-1 h-8 px-2 rounded-lg text-[#888] hover:text-black hover:bg-black/5 transition-colors text-sm shrink-0',
+                workflowMenuOpen && 'bg-black/5 text-black',
+              )}
+            >
               <Workflow className="w-4 h-4" />
               <span>工作流</span>
             </button>
