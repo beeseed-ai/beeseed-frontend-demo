@@ -118,13 +118,16 @@ function agentSkillsDialogOverlay(): Plugin {
                     <div className="flex flex-wrap gap-2">
                       {(agentConfig?.skills ?? []).map((skill) => {
                         const meta = availableSkills.find((item) => item.name === skill)
+                        const isTemplateSkill = !selectedAgentTemplateSkills || selectedAgentTemplateSkills.has(skill)
                         return (
                           <span key={skill} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs">
                             <SkillIcon name={skill} iconUrl={meta?.icon_url} className="size-5 rounded" />
-                            <span className="font-mono">{meta?.display_name || skill}</span>
-                            <button type="button" onClick={() => removeAgentSkill(skill)} className="text-muted-foreground hover:text-destructive" title="移除技能">
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            <span>{meta?.display_name || skill}</span>
+                            {canRemoveAgentSkills && !isTemplateSkill && (
+                              <button type="button" onClick={() => removeAgentSkill(skill)} className="text-muted-foreground hover:text-destructive" title="移除技能">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
                           </span>
                         )
                       })}
