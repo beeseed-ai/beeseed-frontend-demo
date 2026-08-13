@@ -11,6 +11,7 @@ import {
   MarkdownRenderer,
   MessageBubble,
   MessageInput,
+  orderSkillMenuItems,
   AgentTodoRail,
   ToolGroupBubble,
   cn,
@@ -1638,13 +1639,16 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   const [revisionTarget, setRevisionTarget] = useState<ArtifactRevisionTarget | null>(null)
   const [configSkillOptions, setConfigSkillOptions] = useState<SkillShortcutOption[]>([])
   const memberSkillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
-  const skillOptions = useMemo(
-    () => mergeSkillShortcutOptions(memberSkillOptions, configSkillOptions),
-    [memberSkillOptions, configSkillOptions],
-  )
   const channelSettings = useMemo(
     () => parseChannelRuntimeSettings(channels.find((channel) => channel.id === channelId)?.settings),
     [channels, channelId],
+  )
+  const skillOptions = useMemo(
+    () => orderSkillMenuItems(
+      mergeSkillShortcutOptions(memberSkillOptions, configSkillOptions),
+      channelSettings.skill_menu_order,
+    ),
+    [memberSkillOptions, configSkillOptions, channelSettings.skill_menu_order],
   )
   const welcomeTitle = channelSettings.welcome_title
   const welcomeMessage = channelSettings.welcome_message || branding.welcomeMessage
@@ -1762,15 +1766,18 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   )
 }
 
-function parseChannelRuntimeSettings(settings: string | undefined): { welcome_title?: string; welcome_message?: string; quick_questions?: string[] } {
+function parseChannelRuntimeSettings(settings: string | undefined): { welcome_title?: string; welcome_message?: string; quick_questions?: string[]; skill_menu_order?: string[] } {
   if (!settings) return {}
   try {
-    const parsed = JSON.parse(settings) as { welcome_title?: unknown; welcome_message?: unknown; quick_questions?: unknown }
+    const parsed = JSON.parse(settings) as { welcome_title?: unknown; welcome_message?: unknown; quick_questions?: unknown; skill_menu_order?: unknown }
     return {
       welcome_title: typeof parsed.welcome_title === 'string' ? parsed.welcome_title.trim() : undefined,
       welcome_message: typeof parsed.welcome_message === 'string' ? parsed.welcome_message.trim() : undefined,
       quick_questions: Array.isArray(parsed.quick_questions)
         ? parsed.quick_questions.map((item) => typeof item === 'string' ? item.trim() : '').filter(Boolean)
+        : undefined,
+      skill_menu_order: Array.isArray(parsed.skill_menu_order)
+        ? parsed.skill_menu_order.map((item) => typeof item === 'string' ? item.trim() : '').filter(Boolean)
         : undefined,
     }
   } catch {

@@ -60,3 +60,4 @@ export { Input } from '../../../../beeseed-sdk/src/components/ui/input.js'
 export { Avatar, AvatarFallback, AvatarImage } from '../../../../beeseed-sdk/src/components/ui/avatar.js'
 
 export { cn } from '../../../../beeseed-sdk/src/lib/cn.js'
+export { orderSkillMenuItems } from '../../../../beeseed-sdk/src/lib/skill-menu-order.js'
