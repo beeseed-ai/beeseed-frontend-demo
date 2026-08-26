@@ -13,6 +13,7 @@ import {
   MessageInput,
   orderSkillMenuItems,
   AgentTodoRail,
+  ReasonixPublicationStatus,
   ToolGroupBubble,
   cn,
   useAppConfig,
@@ -1639,6 +1640,10 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   const [revisionTarget, setRevisionTarget] = useState<ArtifactRevisionTarget | null>(null)
   const [configSkillOptions, setConfigSkillOptions] = useState<SkillShortcutOption[]>([])
   const memberSkillOptions = useMemo(() => buildSkillShortcutOptions(members), [members])
+  const agentIds = useMemo(
+    () => members.filter((member) => member.member_type === 'agent' && member.agent_id).map((member) => member.agent_id!),
+    [members],
+  )
   const channelSettings = useMemo(
     () => parseChannelRuntimeSettings(channels.find((channel) => channel.id === channelId)?.settings),
     [channels, channelId],
@@ -1704,6 +1709,7 @@ function ChatChannel({ channelId, className, header, tasks = [], tasksLoading = 
   return (
     <div className={cn('flex h-full flex-col bg-[#fafafa]', className)}>
       {header}
+      <ReasonixPublicationStatus channelId={channelId} agentIds={agentIds} />
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <AgentTodoRail

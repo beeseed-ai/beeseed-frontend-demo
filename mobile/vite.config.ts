@@ -142,7 +142,7 @@ function agentSkillsDialogOverlay(): Plugin {
         ],
       ]
 
-      let nextCode = code
+      let nextCode = code.replace(/\r\n/g, '\n')
       for (const [from, to] of replacements) {
         if (!nextCode.includes(from)) {
           this.error(`DetailPanel overlay target changed; missing snippet: ${from.slice(0, 80)}`)
@@ -215,7 +215,7 @@ function uploadWithProgress(`,
         ],
       ]
 
-      let nextCode = code
+      let nextCode = code.replace(/\r\n/g, '\n')
       for (const [from, to] of replacements) {
         if (!nextCode.includes(from)) {
           this.error(`Storage upload overlay target changed; missing snippet: ${from.slice(0, 80)}`)
@@ -280,11 +280,12 @@ function skillShortcutMenuOverlay(): Plugin {
     return () => cancelAnimationFrame(frame)
   }, [syncActiveSkillScroll, skillIndex, skillMenuOpen, pendingSkill, filteredSkills.length, pendingAgentChoices.length])`
 
-      if (!code.includes(from)) {
+      const normalizedCode = code.replace(/\r\n/g, '\n')
+      if (!normalizedCode.includes(from)) {
         this.error('MessageInput overlay target changed; missing skill menu scroll snippet')
       }
 
-      return { code: code.replace(from, to), map: null }
+      return { code: normalizedCode.replace(from, to), map: null }
     },
   }
 }
@@ -396,7 +397,7 @@ function formatDayTitle(value: Date) {`,
           ],
         ]
 
-        let nextCode = code
+        let nextCode = code.replace(/\r\n/g, '\n')
         for (const [from, to] of replacements) {
           if (!nextCode.includes(from)) {
             this.error(`TaskPanel calendar overlay target changed; missing snippet: ${from.slice(0, 80)}`)
@@ -428,7 +429,7 @@ function CompactCalendarRow({ event, onClick }: { event: CalendarEvent; onClick:
           ],
         ]
 
-        let nextCode = code
+        let nextCode = code.replace(/\r\n/g, '\n')
         for (const [from, to] of replacements) {
           if (!nextCode.includes(from)) {
             this.error(`DetailPanel calendar overlay target changed; missing snippet: ${from.slice(0, 80)}`)
@@ -468,6 +469,7 @@ function mobileMessageInputOverlay(): Plugin {
     transform(code, id) {
       const normalizedId = id.split('?')[0].split(path.sep).join('/')
       if (!normalizedId.endsWith('/beeseed-sdk/src/components/chat/MessageInput.tsx')) return null
+      const normalizedCode = code.replace(/\r\n/g, '\n')
 
       const workflowButton = `            <button
               ref={workflowTriggerRef}
@@ -485,15 +487,15 @@ function mobileMessageInputOverlay(): Plugin {
       const sendButtonClass = `className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1a1a1a] text-white hover:bg-[#333] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"`
       const mobileSendButtonClass = `className="flex h-8 min-w-11 items-center justify-center rounded-lg bg-[#1a1a1a] px-3 text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-40"`
 
-      if (!code.includes(workflowButton)) {
+      if (!normalizedCode.includes(workflowButton)) {
         this.error('MessageInput mobile overlay target changed; workflow button snippet missing')
       }
-      if (!code.includes(sendButtonClass)) {
+      if (!normalizedCode.includes(sendButtonClass)) {
         this.error('MessageInput mobile overlay target changed; send button class missing')
       }
 
       return {
-        code: code
+        code: normalizedCode
           .replace(workflowButton, '')
           .replace(sendButtonClass, mobileSendButtonClass),
         map: null,
@@ -509,6 +511,7 @@ function mobileAgentRunTranscriptOverlay(): Plugin {
     transform(code, id) {
       const normalizedId = id.split('?')[0].split(path.sep).join('/')
       if (!normalizedId.endsWith('/beeseed-sdk/src/components/chat/MessageList.tsx')) return null
+      const normalizedCode = code.replace(/\r\n/g, '\n')
 
       const sdkImport = "import { AgentRunTranscript } from './AgentRunTranscript.js'"
       const mobileImport = "import { RuntimeAgentRunTranscript as AgentRunTranscript } from '@standard/runtime-agent-run-transcript'"
@@ -527,15 +530,15 @@ function mobileAgentRunTranscriptOverlay(): Plugin {
           <AvatarFallback className="text-xs">AI</AvatarFallback>
         </Avatar>
       </button>`
-      if (!code.includes(sdkImport)) {
+      if (!normalizedCode.includes(sdkImport)) {
         this.error('MessageList mobile overlay target changed; AgentRunTranscript import missing')
       }
-      if (!code.includes(loopAvatar)) {
+      if (!normalizedCode.includes(loopAvatar)) {
         this.error('MessageList mobile overlay target changed; agent avatar snippet missing')
       }
 
       return {
-        code: code
+        code: normalizedCode
           .replace(sdkImport, mobileImport)
           .replace(loopAvatar, mobileLoopAvatar),
         map: null,
@@ -551,6 +554,7 @@ function mobileAgentAvatarOverlay(): Plugin {
     transform(code, id) {
       const normalizedId = id.split('?')[0].split(path.sep).join('/')
       if (!normalizedId.endsWith('/beeseed-sdk/src/components/chat/MessageBubble.tsx')) return null
+      const normalizedCode = code.replace(/\r\n/g, '\n')
 
       const senderLabelLine = `  const senderLabel = message.senderName || (message.isAgent ? 'Agent' : '用户')`
       const helper = `  const senderLabel = message.senderName || (message.isAgent ? 'Agent' : '用户')
@@ -610,15 +614,15 @@ function mobileAgentAvatarOverlay(): Plugin {
           )}
         </button>`
 
-      if (!code.includes(senderLabelLine)) {
+      if (!normalizedCode.includes(senderLabelLine)) {
         this.error('MessageBubble mobile overlay target changed; sender label line missing')
       }
-      if (!code.includes(askAvatar)) {
+      if (!normalizedCode.includes(askAvatar)) {
         this.error('MessageBubble mobile overlay target changed; ask-user avatar snippet missing')
       }
 
       return {
-        code: code
+        code: normalizedCode
           .replace(senderLabelLine, helper)
           .replace(askAvatar, mobileAskAvatar)
           .replace(normalAvatar, mobileNormalAvatar),

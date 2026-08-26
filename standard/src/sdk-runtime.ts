@@ -46,6 +46,7 @@ export { MarkdownRenderer } from '../../../../beeseed-sdk/src/components/chat/Ma
 export { ToolGroupBubble } from '../../../../beeseed-sdk/src/components/chat/ToolGroupBubble.js'
 export { AgentRunTranscript } from '../../../../beeseed-sdk/src/components/chat/AgentRunTranscript.js'
 export { AgentTodoRail } from '../../../../beeseed-sdk/src/components/chat/AgentTodoRail.js'
+export { ReasonixPublicationStatus } from '../../../../beeseed-sdk/src/components/chat/ReasonixPublicationStatus.js'
 
 export { CreateChannelDialog } from '../../../../beeseed-sdk/src/components/channels/CreateChannelDialog.js'
 

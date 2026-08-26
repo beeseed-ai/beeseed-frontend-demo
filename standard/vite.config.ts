@@ -141,7 +141,7 @@ function agentSkillsDialogOverlay(): Plugin {
         ],
       ]
 
-      let nextCode = code
+      let nextCode = code.replace(/\r\n/g, '\n')
       for (const [from, to] of replacements) {
         if (!nextCode.includes(from)) {
           this.error(`DetailPanel overlay target changed; missing snippet: ${from.slice(0, 80)}`)
@@ -214,7 +214,7 @@ function uploadWithProgress(`,
         ],
       ]
 
-      let nextCode = code
+      let nextCode = code.replace(/\r\n/g, '\n')
       for (const [from, to] of replacements) {
         if (!nextCode.includes(from)) {
           this.error(`Storage upload overlay target changed; missing snippet: ${from.slice(0, 80)}`)
@@ -279,11 +279,12 @@ function skillShortcutMenuOverlay(): Plugin {
     return () => cancelAnimationFrame(frame)
   }, [syncActiveSkillScroll, skillIndex, skillMenuOpen, pendingSkill, filteredSkills.length, pendingAgentChoices.length])`
 
-      if (!code.includes(from)) {
+      const normalizedCode = code.replace(/\r\n/g, '\n')
+      if (!normalizedCode.includes(from)) {
         this.error('MessageInput overlay target changed; missing skill menu scroll snippet')
       }
 
-      return { code: code.replace(from, to), map: null }
+      return { code: normalizedCode.replace(from, to), map: null }
     },
   }
 }
@@ -475,11 +476,12 @@ function hideKnowledgeNavOverlay(): Plugin {
   { id: 'workflows', label: '工作流', icon: GitBranch },
 ]`
 
-      if (!code.includes(from)) {
+      const normalizedCode = code.replace(/\r\n/g, '\n')
+      if (!normalizedCode.includes(from)) {
         this.error('LeftNavSidebar overlay target changed; missing BASE_NAV_ITEMS snippet')
       }
 
-      return { code: code.replace(from, to), map: null }
+      return { code: normalizedCode.replace(from, to), map: null }
     },
   }
 }
