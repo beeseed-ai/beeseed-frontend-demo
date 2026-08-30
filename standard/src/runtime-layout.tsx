@@ -364,6 +364,7 @@ const TASK_STATUS_LABEL: Record<Task['status'], string> = {
   done: '已完成',
   failed: '失败',
   blocked: '阻塞',
+  skipped: '已跳过',
 }
 
 const TASK_STATUS_CLASS: Record<Task['status'], string> = {
@@ -372,6 +373,7 @@ const TASK_STATUS_CLASS: Record<Task['status'], string> = {
   done: 'border-[#39bf45] bg-[#f0fbf1] text-[#006400]',
   failed: 'border-[#f1b29d] bg-[#fff4ef] text-[#aa2d00]',
   blocked: 'border-[#d9a441] bg-[#fff8df] text-[#6f4d00]',
+  skipped: 'border-[#dddddd] bg-[#f8fafc] text-[#6b7280]',
 }
 
 const TASK_SORT_WEIGHT: Record<Task['status'], number> = {
@@ -380,6 +382,7 @@ const TASK_SORT_WEIGHT: Record<Task['status'], number> = {
   pending: 2,
   failed: 3,
   done: 4,
+  skipped: 5,
 }
 
 function taskStatusLabel(status: Task['status']) {
