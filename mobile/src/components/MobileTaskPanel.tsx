@@ -44,6 +44,7 @@ const STATUS_META = {
   done: { label: '已完成', tone: 'green', icon: CheckCircle2 },
   failed: { label: '遇险', tone: 'red', icon: AlertTriangle },
   blocked: { label: '卡关', tone: 'amber', icon: ShieldCheck },
+  skipped: { label: '已跳过', tone: 'amber', icon: PauseCircle },
 } as const
 
 export function MobileTaskPanel({ channelId, members = [], createTaskRequest = 0 }: Props) {

@@ -187,10 +187,7 @@ function storageUploadIntegrityOverlay(): Plugin {
         [
           `        const completed = await config.api.post(\`channels/\${channelId}/storage/complete-upload\`, {
           json: { object_id: presign.object.id },
-        }).json<StorageObject>()
-        set({ uploadProgress: 100 })
-        await get().browse(channelId, visiblePrefix)
-        return completed`,
+        }).json<StorageObject>()`,
           `        const completed = await config.api.post(\`channels/\${channelId}/storage/complete-upload\`, {
           json: { object_id: presign.object.id },
         }).json<StorageObject>()
@@ -199,10 +196,7 @@ function storageUploadIntegrityOverlay(): Plugin {
             await config.api.delete(\`channels/\${channelId}/storage/file/\${encodeURIComponent(completed.key)}\`).catch(() => undefined)
           }
           throw new Error(\`上传校验失败：期望 \${expectedSize} 字节，实际保存 \${completed.size ?? 0} 字节\`)
-        }
-        set({ uploadProgress: 100 })
-        await get().browse(channelId, visiblePrefix)
-        return completed`,
+        }`,
         ],
         [
           `function uploadWithProgress(`,

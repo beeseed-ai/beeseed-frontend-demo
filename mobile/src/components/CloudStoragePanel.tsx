@@ -65,6 +65,8 @@ export function CloudStoragePanel({ channelId, className, onReference }: Props) 
     uploading,
     uploadProgress,
     uploadError,
+    error,
+    clearError,
     policy,
     usage,
     canUpload,
@@ -220,6 +222,15 @@ export function CloudStoragePanel({ channelId, className, onReference }: Props) 
           </span>
         ))}
       </div>
+
+      {error && (
+        <div role="alert" className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-destructive">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => void browse(currentPrefix)} className="underline">重新加载</button>
+          <button onClick={clearError} aria-label="关闭文件操作错误"><X className="h-3.5 w-3.5" /></button>
+        </div>
+      )}
 
       {(uploading || uploadError) && (
         <div className="shrink-0 px-4 py-2">
