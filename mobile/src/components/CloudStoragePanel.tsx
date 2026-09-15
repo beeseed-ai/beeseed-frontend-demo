@@ -66,6 +66,7 @@ export function CloudStoragePanel({ channelId, className, onReference }: Props) 
     uploadProgress,
     uploadError,
     error,
+    notice,
     clearError,
     policy,
     usage,
@@ -223,6 +224,7 @@ export function CloudStoragePanel({ channelId, className, onReference }: Props) 
         ))}
       </div>
 
+      {notice && <p role="status" className="mx-4 mt-3 rounded-md border bg-muted/50 px-3 py-2 text-sm text-foreground">{notice}</p>}
       {error && (
         <div role="alert" className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-destructive">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
