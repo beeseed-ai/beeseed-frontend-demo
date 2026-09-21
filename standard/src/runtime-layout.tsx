@@ -943,7 +943,7 @@ function MessageList({
   streams?: StreamState[]
   agentLoops?: AgentLoopState[]
   members?: ChannelMemberInfo[]
-  typings?: string[]
+  typings?: Array<{ agentId: string; text: string }>
   onQuote?: (message: ChatMessage) => void
   currentUserId?: string
   onSubmitAnswer?: (askId: string, answers: Record<string, unknown>) => void
@@ -1038,7 +1038,7 @@ function MessageList({
     timelineGroups.length,
     visibleLoops.map((loop) => `${agentLoopKey(loop)}:${agentLoopActivityAt(loop)}:${loop.events?.length ?? 0}`).join('|'),
     visibleStreams.map((stream) => `${stream.runId || stream.agentId}:${stream.content.length}:${stream.agentLoop ? agentLoopActivityAt(stream.agentLoop) : 0}`).join('|'),
-    visibleTypings.join('|'),
+    visibleTypings.map((entry) => `${entry.agentId}:${entry.text}`).join('|'),
     scrollToBottom,
   ])
 
@@ -1166,14 +1166,14 @@ function MessageList({
           )
         })}
 
-        {visibleTypings.length > 0 && visibleStreams.length === 0 && !runningTimelineLoops && visibleTypings.map((text, index) => (
-          <div key={`typing-${index}-${text}`} className="mx-auto flex items-center gap-2 px-16 py-2 text-xs text-[#999]" style={{ maxWidth: CHAT_MAX_WIDTH }}>
+        {visibleTypings.length > 0 && visibleStreams.length === 0 && !runningTimelineLoops && visibleTypings.map((entry, index) => (
+          <div key={`typing-${index}-${entry.agentId}-${entry.text}`} className="mx-auto flex items-center gap-2 px-16 py-2 text-xs text-[#999]" style={{ maxWidth: CHAT_MAX_WIDTH }}>
             <span className="inline-flex gap-1">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#999] [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#999] [animation-delay:150ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#999] [animation-delay:300ms]" />
             </span>
-            <span>{text}</span>
+            <span>{entry.text}</span>
           </div>
         ))}
       </div>
